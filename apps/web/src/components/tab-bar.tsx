@@ -1,5 +1,4 @@
 import { Plus, X } from "lucide-react";
-import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { TAB_MAX_WIDTH_PX } from "@/lib/constants";
 import { useSessions } from "@/lib/use-sessions";
@@ -9,19 +8,8 @@ interface TabBarProps {
   onNew: () => void;
 }
 
-interface TabSummary {
-  id: string;
-  title: string;
-  exited: boolean;
-}
-
-const summarizeTabs = (
-  sessions: ReturnType<typeof useSessions.getState>["sessions"],
-): TabSummary[] =>
-  sessions.map((session) => ({ id: session.id, title: session.title, exited: session.exited }));
-
 export const TabBar = ({ onNew }: TabBarProps) => {
-  const tabs = useSessions(useShallow((state) => summarizeTabs(state.sessions)));
+  const sessions = useSessions((state) => state.sessions);
   const activeId = useSessions((state) => state.activeId);
   const setActive = useSessions((state) => state.setActive);
   const remove = useSessions((state) => state.remove);
@@ -33,35 +21,35 @@ export const TabBar = ({ onNew }: TabBarProps) => {
         aria-label="terminal sessions"
         className="flex flex-1 items-center gap-0.5 overflow-x-auto"
       >
-        {tabs.map((tab) => {
-          const isActive = tab.id === activeId;
-          const label = tab.title || "shell";
+        {sessions.map((session) => {
+          const isActive = session.id === activeId;
+          const label = session.title || "shell";
           return (
             <div
-              key={tab.id}
+              key={session.id}
               className={cn(
                 "group relative flex h-7 items-center rounded-md text-xs transition-colors",
                 isActive
                   ? "bg-secondary text-secondary-foreground"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
-                tab.exited && "italic opacity-60",
+                session.exited && "italic opacity-60",
               )}
               style={{ maxWidth: TAB_MAX_WIDTH_PX }}
               onAuxClick={(event) => {
                 if (event.button === 1) {
                   event.preventDefault();
-                  void remove(tab.id);
+                  void remove(session.id);
                 }
               }}
             >
               <button
                 type="button"
                 role="tab"
-                id={`tab-${tab.id}`}
+                id={`tab-${session.id}`}
                 aria-selected={isActive}
-                aria-controls={`terminal-panel-${tab.id}`}
+                aria-controls={`terminal-panel-${session.id}`}
                 tabIndex={isActive ? 0 : -1}
-                onClick={() => setActive(tab.id)}
+                onClick={() => setActive(session.id)}
                 className="flex min-w-0 flex-1 items-center gap-1.5 px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 <span
@@ -74,7 +62,7 @@ export const TabBar = ({ onNew }: TabBarProps) => {
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  void remove(tab.id);
+                  void remove(session.id);
                 }}
                 aria-label={`close ${label}`}
                 className="mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-background/50 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100"
