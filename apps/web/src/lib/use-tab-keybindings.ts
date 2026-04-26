@@ -8,25 +8,48 @@ interface KeybindingHandlers {
   onJumpTo: (index: number) => void;
 }
 
+const isStandalone = (): boolean => {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia("(display-mode: standalone)").matches) return true;
+  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
+  return navigatorWithStandalone.standalone === true;
+};
+
 export const useTabKeybindings = (handlers: KeybindingHandlers): void => {
   useEffect(() => {
+    const standalone = isStandalone();
     const handler = (event: KeyboardEvent) => {
-      const isMeta = event.metaKey || event.ctrlKey;
-      if (!isMeta) return;
+      const meta = event.metaKey || event.ctrlKey;
+      if (!meta) return;
       const key = event.key.toLowerCase();
-      if (key === "t") {
+
+      const wantsNew = (event.altKey && key === "t") || (standalone && key === "t");
+      const wantsClose = (event.altKey && key === "w") || (standalone && key === "w");
+      const wantsNext = key === "]" || (event.shiftKey && key === "}");
+      const wantsPrev = key === "[" || (event.shiftKey && key === "{");
+      const isDigit = /^[1-9]$/.test(event.key);
+
+      if (wantsNew) {
         event.preventDefault();
         handlers.onNewTab();
-      } else if (key === "w") {
+        return;
+      }
+      if (wantsClose) {
         event.preventDefault();
         handlers.onCloseTab();
-      } else if (event.shiftKey && key === "}") {
+        return;
+      }
+      if (wantsNext) {
         event.preventDefault();
         handlers.onNextTab();
-      } else if (event.shiftKey && key === "{") {
+        return;
+      }
+      if (wantsPrev) {
         event.preventDefault();
         handlers.onPrevTab();
-      } else if (/^[1-9]$/.test(event.key)) {
+        return;
+      }
+      if (isDigit && (event.altKey || standalone)) {
         event.preventDefault();
         handlers.onJumpTo(Number.parseInt(event.key, 10) - 1);
       }

@@ -30,29 +30,33 @@ interface TerminalViewProps {
   isActive: boolean;
 }
 
-const TERMINAL_THEME_DARK = {
-  background: "#0a0a0a",
-  foreground: "#ededed",
-  cursor: "#ededed",
-  cursorAccent: "#0a0a0a",
-  selectionBackground: "#3f3f46",
-  black: "#0a0a0a",
-  red: "#ef4444",
-  green: "#22c55e",
-  yellow: "#eab308",
-  blue: "#3b82f6",
-  magenta: "#a855f7",
-  cyan: "#06b6d4",
-  white: "#e4e4e7",
-  brightBlack: "#52525b",
-  brightRed: "#f87171",
-  brightGreen: "#4ade80",
-  brightYellow: "#facc15",
-  brightBlue: "#60a5fa",
-  brightMagenta: "#c084fc",
-  brightCyan: "#22d3ee",
-  brightWhite: "#fafafa",
+const TERMINAL_THEME_VESPER = {
+  background: "#101010",
+  foreground: "#ffffff",
+  cursor: "#ffc799",
+  cursorAccent: "#101010",
+  selectionBackground: "#2a2a2a",
+  selectionForeground: "#ffffff",
+  black: "#101010",
+  red: "#ff8080",
+  green: "#99ffe4",
+  yellow: "#ffc799",
+  blue: "#a0a0a0",
+  magenta: "#ffc799",
+  cyan: "#99ffe4",
+  white: "#ffffff",
+  brightBlack: "#505050",
+  brightRed: "#ff9999",
+  brightGreen: "#b3ffe4",
+  brightYellow: "#ffd1a8",
+  brightBlue: "#b0b0b0",
+  brightMagenta: "#ffc799",
+  brightCyan: "#66ddcc",
+  brightWhite: "#ffffff",
 };
+
+const TERMINAL_FONT_FAMILY =
+  '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 export const TerminalView = ({ sessionId, isActive }: TerminalViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -116,19 +120,23 @@ export const TerminalView = ({ sessionId, isActive }: TerminalViewProps) => {
     if (!containerRef.current) return;
     isDisposedRef.current = false;
 
+    void document.fonts.load(`${TERMINAL_FONT_SIZE_PX}px "Geist Mono"`).catch(() => {
+      /* font may be unavailable; xterm falls back to the next family */
+    });
+
     const terminal = new Terminal({
       allowProposedApi: true,
       cursorBlink: true,
       cursorStyle: "block",
-      fontFamily:
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, 'Cascadia Mono', 'Roboto Mono', Consolas, monospace",
+      fontFamily: TERMINAL_FONT_FAMILY,
       fontSize: TERMINAL_FONT_SIZE_PX,
       lineHeight: TERMINAL_LINE_HEIGHT,
       letterSpacing: 0,
       scrollback: TERMINAL_SCROLLBACK_LINES,
-      theme: TERMINAL_THEME_DARK,
+      theme: TERMINAL_THEME_VESPER,
       macOptionIsMeta: true,
       allowTransparency: false,
+      scrollOnUserInput: true,
     });
     const fit = new FitAddon();
     const search = new SearchAddon();
@@ -294,7 +302,7 @@ export const TerminalView = ({ sessionId, isActive }: TerminalViewProps) => {
 
   return (
     <div
-      className="relative h-full w-full bg-[#0a0a0a]"
+      className="relative h-full w-full bg-[#101010]"
       style={{ display: isActive ? "block" : "none" }}
       role="tabpanel"
       id={`terminal-panel-${sessionId}`}

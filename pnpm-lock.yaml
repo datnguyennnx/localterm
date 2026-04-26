@@ -36,6 +36,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
+      '@fontsource/geist-mono':
+        specifier: ^5.2.7
+        version: 5.2.7
       '@localterm/server':
         specifier: workspace:*
         version: link:../../packages/server
@@ -125,7 +128,7 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core
         version: '@voidzero-dev/vite-plus-core@0.1.19(@types/node@25.6.0)(jiti@2.6.1)(typescript@5.9.3)'
       vitest:
-        specifier: npm:@voidzero-dev/vite-plus-test@^0.1.19
+        specifier: npm:@voidzero-dev/vite-plus-test
         version: '@voidzero-dev/vite-plus-test@0.1.19(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jiti@2.6.1)(jsdom@29.0.2(@noble/hashes@1.8.0))(typescript@5.9.3)(vite@8.0.10(@types/node@25.6.0)(jiti@2.6.1))'
 
   packages/cli:
@@ -505,6 +508,9 @@ packages:
 
   '@fontsource-variable/inter@5.2.8':
     resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
+
+  '@fontsource/geist-mono@5.2.7':
+    resolution: {integrity: sha512-xVPVFISJg/K0VVd+aQN0Y7X/sw9hUcJPyDWFJ5GpyU3bHELhoRsJkPSRSHXW32mOi0xZCUQDOaPj1sqIFJ1FGg==}
 
   '@hono/node-server@1.19.14':
     resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
@@ -4397,6 +4403,8 @@ snapshots:
   '@floating-ui/utils@0.2.11': {}
 
   '@fontsource-variable/inter@5.2.8': {}
+
+  '@fontsource/geist-mono@5.2.7': {}
 
   '@hono/node-server@1.19.14(hono@4.12.15)':
     dependencies:

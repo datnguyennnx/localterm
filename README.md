@@ -30,13 +30,19 @@ State lives in `~/.localterm/` (PID, port, server log).
 
 ## Keybindings
 
-The browser captures `Cmd+T` and `Cmd+W` before the page can see them, so install as a PWA / standalone window if you want full keyboard control. The shortcuts the page can intercept:
+`Cmd+T`, `Cmd+W`, and `Cmd+1`–`9` are claimed by the browser before the page can see them, so the in-browser bindings are mapped to combos the browser leaves alone. If you want the native versions, install localterm as a standalone PWA — once it's a separate window the shortcuts work as expected.
 
-- `Cmd/Ctrl+F` — find in active terminal
-- `Cmd/Ctrl+1` … `Cmd/Ctrl+9` — jump to tab N
-- `Cmd/Ctrl+Shift+]` / `Cmd/Ctrl+Shift+[` — next / previous tab
-- Middle click on a tab — close it
-- `Esc` — close find bar
+| In-browser tab              | PWA / standalone | Action          |
+| --------------------------- | ---------------- | --------------- |
+| `Cmd/Ctrl+Option+T`         | `Cmd+T`          | new tab         |
+| `Cmd/Ctrl+Option+W`         | `Cmd+W`          | close tab       |
+| `Cmd/Ctrl+]` / `Cmd/Ctrl+[` | same             | next / prev tab |
+| `Cmd/Ctrl+Option+1`–`9`     | `Cmd+1`–`9`      | jump to tab N   |
+| `Cmd/Ctrl+F`                | same             | find in tab     |
+| Middle-click tab            | same             | close tab       |
+| `Esc`                       | same             | close find bar  |
+
+To install on Chrome/Edge: open `localterm`, click the install icon in the URL bar (or `⋮` → "Install localterm"). On Safari: `File → Add to Dock`.
 
 ## Structure
 
