@@ -7,6 +7,11 @@ export const DEFAULT_SHELL_FALLBACK = "/bin/sh";
 export const TERM_TYPE = "xterm-256color";
 export const COLORTERM_VALUE = "truecolor";
 
+export const TITLE_POLL_INTERVAL_MS = 500;
+export const CWD_RESOLVE_TIMEOUT_MS = 250;
+export const TITLE_MAX_PATH_SEGMENTS = 3;
+export const TITLE_TRUNCATION_PREFIX = "…";
+
 export const PTY_ENV_DENYLIST = ["LOCALTERM_DAEMON_CHILD"];
 
 export const MAX_INPUT_BYTES = 64 * 1024;

@@ -78,4 +78,41 @@ describe("Session", () => {
       session.dispose();
     }
   });
+
+  it("injects an OSC 2 title sequence into the output stream while idle", async () => {
+    const session = new Session({ shell: "/bin/sh" });
+    const oscIntroducer = `${String.fromCharCode(0x1b)}]2;`;
+    const bel = String.fromCharCode(0x07);
+    try {
+      const sawTitle = await waitFor(
+        new Promise<boolean>((resolve) => {
+          const onData = (chunk: string) => {
+            if (chunk.includes(oscIntroducer) && chunk.includes(bel)) {
+              session.off("output", onData);
+              resolve(true);
+            }
+          };
+          session.on("output", onData);
+        }),
+        2000,
+      );
+      expect(sawTitle).toBe(true);
+    } finally {
+      session.dispose();
+    }
+  });
+
+  it("dispose stops emitting any further title polls", async () => {
+    const session = new Session({ shell: "/bin/sh" });
+    await collectOutput(session);
+    session.dispose();
+    let postDisposeOutput = "";
+    const onData = (chunk: string) => {
+      postDisposeOutput += chunk;
+    };
+    session.on("output", onData);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    session.off("output", onData);
+    expect(postDisposeOutput).toBe("");
+  });
 });

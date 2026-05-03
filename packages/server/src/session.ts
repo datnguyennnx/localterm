@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import os from "node:os";
+import path from "node:path";
 import { spawn, type IPty } from "node-pty";
 import {
   COLORTERM_VALUE,
@@ -7,10 +8,14 @@ import {
   DEFAULT_ROWS,
   PTY_ENV_DENYLIST,
   TERM_TYPE,
+  TITLE_POLL_INTERVAL_MS,
 } from "./constants.js";
 import { ensureSpawnHelperExecutable } from "./ensure-spawn-helper-executable.js";
 import { getDefaultShell } from "./default-shell.js";
 import type { SpawnPtyInput } from "./types.js";
+import { encodeOscTitle } from "./utils/encode-osc-title.js";
+import { formatWorkingDirectoryTitle } from "./utils/format-working-directory-title.js";
+import { resolveCwdForPid } from "./utils/resolve-cwd-for-pid.js";
 
 interface SessionEvents {
   output: [data: string];
@@ -23,14 +28,18 @@ export class Session extends EventEmitter<SessionEvents> {
   readonly createdAt: number;
 
   private readonly pty: IPty;
+  private readonly shellName: string;
   private currentCols: number;
   private currentRows: number;
   private exited = false;
+  private titlePollTimer: NodeJS.Timeout | null = null;
+  private lastEmittedTitle = "";
 
   constructor(input: SpawnPtyInput) {
     super();
     ensureSpawnHelperExecutable();
     this.shell = input.shell ?? getDefaultShell();
+    this.shellName = path.basename(this.shell);
     this.cwd = input.cwd ?? os.homedir();
     this.currentCols = input.cols ?? DEFAULT_COLS;
     this.currentRows = input.rows ?? DEFAULT_ROWS;
@@ -64,8 +73,11 @@ export class Session extends EventEmitter<SessionEvents> {
 
     this.pty.onExit(({ exitCode }) => {
       this.exited = true;
+      this.stopTitlePolling();
       this.emit("exit", exitCode);
     });
+
+    this.scheduleTitlePoll(0);
   }
 
   get pid(): number {
@@ -112,7 +124,43 @@ export class Session extends EventEmitter<SessionEvents> {
   }
 
   dispose(): void {
+    this.stopTitlePolling();
     this.kill();
     this.removeAllListeners();
+  }
+
+  private scheduleTitlePoll(delayMs: number): void {
+    if (this.exited) return;
+    this.titlePollTimer = setTimeout(() => {
+      void this.runTitlePoll();
+    }, delayMs);
+    this.titlePollTimer.unref();
+  }
+
+  private async runTitlePoll(): Promise<void> {
+    if (this.exited) return;
+    try {
+      const nextTitle = await this.computeTitle();
+      if (this.exited) return;
+      if (nextTitle && nextTitle !== this.lastEmittedTitle) {
+        this.lastEmittedTitle = nextTitle;
+        this.emit("output", encodeOscTitle(nextTitle));
+      }
+    } finally {
+      this.scheduleTitlePoll(TITLE_POLL_INTERVAL_MS);
+    }
+  }
+
+  private async computeTitle(): Promise<string | null> {
+    const foreground = this.pty.process?.trim() ?? "";
+    if (foreground && foreground !== this.shellName) return foreground;
+    const liveCwd = await resolveCwdForPid(this.pid).catch(() => null);
+    return formatWorkingDirectoryTitle(liveCwd ?? this.cwd);
+  }
+
+  private stopTitlePolling(): void {
+    if (this.titlePollTimer === null) return;
+    clearTimeout(this.titlePollTimer);
+    this.titlePollTimer = null;
   }
 }
