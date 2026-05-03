@@ -1,38 +1,60 @@
 # localterm
 
-A browser-based terminal: one browser tab is one PTY session. Persistent xterm.js front-end, hono + node-pty back-end. pnpm monorepo built on [vite-plus](https://github.com/voidzero-dev/vite-plus) and [turbo](https://turbo.build).
+[![version](https://img.shields.io/npm/v/localterm?style=flat&colorA=000000&colorB=000000)](https://npmjs.com/package/localterm)
+[![downloads](https://img.shields.io/npm/dt/localterm.svg?style=flat&colorA=000000&colorB=000000)](https://npmjs.com/package/localterm)
 
-The mental model is "shell = browser tab". Spawn another shell by opening a new browser tab and visiting localterm again; close a tab to retire its shell (the daemon reaps it after a short grace window). Reload restores the same shell because the page writes its session id into the URL path, e.g. `http://localterm.localhost:3417/jolly-chipmunk-trea`.
+Your terminal should just be a browser tab.
 
-## Quick start
+How? Run `npx localterm start` and every browser tab becomes its own persistent shell — open a new tab to spawn another, close it to retire it, reload to restore it (vim/htop/less state and all).
+
+## Install
+
+Run this command anywhere:
 
 ```bash
-pnpm install
-pnpm build
-pnpm start
+npx localterm start
 ```
 
-Opens `http://localterm.localhost:3417` in your browser. (`*.localhost` is reserved by RFC 6761 and resolves to `127.0.0.1` in every modern browser, so no `/etc/hosts` edit needed.) `Ctrl+C` stops the daemon and tears down all sessions. Pass CLI flags through with `pnpm start -- --no-open`.
+This boots a local daemon and opens `http://localterm.localhost:3417` in your browser. (`*.localhost` is reserved by [RFC 6761](https://datatracker.ietf.org/doc/html/rfc6761) and resolves to `127.0.0.1` in every modern browser, so no `/etc/hosts` edit needed.)
+
+To install globally:
+
+```bash
+npm install -g localterm
+localterm start
+```
+
+## Usage
+
+The mental model is **shell = browser tab**:
+
+- **New tab** → new shell
+- **Close tab** → daemon reaps the shell after a short grace window
+- **Reload** → same shell restores exactly (the page writes its session id into the URL, e.g. `http://localterm.localhost:3417/jolly-chipmunk-trea`)
+
+On reconnect, the WebSocket sends a `serialize()` snapshot from a per-session headless xterm before live output resumes, so reloading the page (or even restarting the browser) restores vim/htop/less state byte-for-byte.
 
 ## CLI
 
-From inside the repo, every subcommand is reachable as `pnpm cli <subcommand>`. If you've installed localterm globally with `pnpm link --global packages/cli`, the same subcommands work as `localterm <subcommand>`.
-
 ```bash
-pnpm cli start [-p 3417] [-H 127.0.0.1] [--no-open]   # alias of `pnpm start`
-pnpm cli stop
-pnpm cli status
-pnpm cli restart        # detached restart, logs to ~/.localterm/server.log
-pnpm cli list           # ls
-pnpm cli new [-c cwd] [-s shell]
-pnpm cli kill <id>
+localterm start [-p 3417] [-H 127.0.0.1] [--no-open]   # daemonizes by default
+localterm stop
+localterm status
+localterm restart        # detached restart, logs to ~/.localterm/server.log
+localterm list           # alias: ls
+localterm new [-c cwd] [-s shell]
+localterm kill <id>
 ```
 
 State lives in `~/.localterm/` (PID, port, server log).
 
+## Security
+
 `localterm` only binds loopback hosts (`127.0.0.1`, `localhost`, `*.localhost`, `::1`); non-loopback values are rejected. All `/api` and `/ws` routes additionally check the `Host` and `Origin` headers to defeat DNS-rebinding attacks.
 
 ## Structure
+
+This is a pnpm monorepo built on [vite-plus](https://github.com/voidzero-dev/vite-plus) and [turbo](https://turbo.build):
 
 ```
 apps/
@@ -42,12 +64,14 @@ packages/
   cli/          # commander entry: start/stop/status/restart/list/new/kill
 ```
 
-The server keeps a `@xterm/headless` instance per session, fed from every PTY chunk. On reconnect, the WebSocket sends a `serialize()` snapshot before live output resumes, so reloading the page (or even restarting the browser) restores vim/htop/less state exactly.
+## Resources & Contributing Back
 
-## Scripts
+Looking to contribute back? Check out the [Contributing Guide](https://github.com/aidenybai/localterm/blob/main/CONTRIBUTING.md) and `AGENTS.md` for code style.
 
-- `pnpm build`: turbo build (web, then server, then cli)
-- `pnpm dev`: turbo watch all packages
-- `pnpm test` / `pnpm typecheck` / `pnpm lint` / `pnpm format`
+Find a bug? Head over to our [issue tracker](https://github.com/aidenybai/localterm/issues) and we'll do our best to help. We love pull requests, too!
 
-See `AGENTS.md` for code style and `CONTRIBUTING.md` for the contribution flow.
+[**→ Start contributing on GitHub**](https://github.com/aidenybai/localterm/blob/main/CONTRIBUTING.md)
+
+### License
+
+localterm is MIT-licensed open-source software.
