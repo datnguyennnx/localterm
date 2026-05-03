@@ -5,6 +5,7 @@ import type * as XtermAddonSerialize from "@xterm/addon-serialize";
 import type * as XtermHeadless from "@xterm/headless";
 import { spawn, type IPty } from "node-pty";
 import { DEFAULT_COLS, DEFAULT_ROWS, DEFAULT_SCROLLBACK, DEFAULT_TITLE } from "./constants.js";
+import { ensureSpawnHelperExecutable } from "./ensure-spawn-helper-executable.js";
 import { generateFriendlyId } from "./friendly-id.js";
 import { getDefaultShell } from "./default-shell.js";
 import type { CreateSessionInput, ServerToClientMessage, SessionMetadata } from "./types.js";
@@ -43,6 +44,7 @@ export class Session extends EventEmitter<SessionEvents> {
 
   constructor(input: CreateSessionInput) {
     super();
+    ensureSpawnHelperExecutable();
     this.id = generateFriendlyId();
     this.shell = input.shell ?? getDefaultShell();
     this.cwd = input.cwd ?? os.homedir();

@@ -1,5 +1,13 @@
 # localterm-server
 
+## 0.0.2
+
+### Patch Changes
+
+- Fix `posix_spawnp failed` error on first shell spawn after `npm install -g localterm`.
+
+  node-pty's prebuilt `spawn-helper` binary loses the executable bit through some npm install paths. We now `chmod 0o755` it lazily inside the `Session` constructor so the very first spawn always works, regardless of how the package was installed (npm, pnpm, yarn, monorepo, global, local).
+
 ## 0.0.1
 
 ### Patch Changes
