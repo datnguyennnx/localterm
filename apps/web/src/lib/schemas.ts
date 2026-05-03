@@ -1,1 +1,1 @@
-export { serverToClientMessageSchema, sessionMetadataSchema } from "localterm-server/protocol";
+export { serverToClientMessageSchema } from "localterm-server/protocol";

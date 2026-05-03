@@ -1,10 +1,13 @@
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { FitAddon } from "@xterm/addon-fit";
+import { ImageAddon } from "@xterm/addon-image";
+import { ProgressAddon } from "@xterm/addon-progress";
+import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as XtermTerminal } from "@xterm/xterm";
-import { Check, Copy, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
@@ -22,9 +25,9 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  InputGroupText,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-import { buildWebSocketUrl } from "@/lib/api";
 import {
   COPY_FEEDBACK_MS,
   DEAD_SESSION_TITLE_PREFIX,
@@ -34,14 +37,18 @@ import {
   RESIZE_DEBOUNCE_MS,
   RESTART_COMMAND,
   RETRY_BUTTON_FEEDBACK_MS,
+  SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
+  SEARCH_ACTIVE_MATCH_BORDER_HEX,
+  SEARCH_MATCH_BACKGROUND_HEX,
   TERMINAL_BACKGROUND_HEX,
   TERMINAL_FONT_SIZE_PX,
   TERMINAL_LINE_HEIGHT,
   TERMINAL_SCROLLBACK_LINES,
-  WS_CLOSE_SESSION_NOT_FOUND,
 } from "@/lib/constants";
 import { serverToClientMessageSchema } from "@/lib/schemas";
 import type { ClientToServerMessage } from "@/lib/types";
+import { detectIsMacPlatform } from "@/utils/detect-is-mac-platform";
+import { isFindShortcut } from "@/utils/is-find-shortcut";
 import "@xterm/xterm/css/xterm.css";
 
 const formatExitMarker = (code: number | null): string => {
@@ -52,10 +59,6 @@ const formatExitMarker = (code: number | null): string => {
 const titleForLiveSession = (raw: string): string => raw || DEFAULT_DOCUMENT_TITLE;
 const titleForDeadSession = (raw: string): string =>
   `${DEAD_SESSION_TITLE_PREFIX}${raw || DEFAULT_DOCUMENT_TITLE}`;
-
-interface TerminalProps {
-  sessionId: string;
-}
 
 const TERMINAL_THEME_VESPER = {
   background: TERMINAL_BACKGROUND_HEX,
@@ -82,6 +85,14 @@ const TERMINAL_THEME_VESPER = {
   brightWhite: "#ffffff",
 };
 
+const SEARCH_DECORATION_OPTIONS = {
+  matchBackground: SEARCH_MATCH_BACKGROUND_HEX,
+  activeMatchBackground: SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
+  activeMatchBorder: SEARCH_ACTIVE_MATCH_BORDER_HEX,
+  matchOverviewRuler: SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
+  activeMatchColorOverviewRuler: SEARCH_ACTIVE_MATCH_BORDER_HEX,
+};
+
 const FALLBACK_MONO_FONT_FAMILY = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 const resolveMonoFontFamily = (): string => {
@@ -93,17 +104,27 @@ const resolveMonoFontFamily = (): string => {
   return value || FALLBACK_MONO_FONT_FAMILY;
 };
 
-const reloadToFreshSession = () => {
-  window.location.assign(window.location.pathname);
+const buildWebSocketUrl = (): string => {
+  const url = new URL("/ws", window.location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
 };
 
 const openNewShellInNewTab = () => {
   window.open(window.location.origin, "_blank", "noopener,noreferrer");
 };
 
-export const Terminal = ({ sessionId }: TerminalProps) => {
+interface SearchResultState {
+  resultIndex: number;
+  resultCount: number;
+}
+
+export const Terminal = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const manualReconnectRef = useRef<(() => void) | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
+  const refocusTerminalRef = useRef<(() => void) | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const retryFeedbackTimerRef = useRef<number | null>(null);
   const copyFeedbackTimerRef = useRef<number | null>(null);
   const [exitInfo, setExitInfo] = useState<{ code: number | null } | null>(null);
@@ -111,13 +132,22 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
   const [hasCopiedRestartCommand, setHasCopiedRestartCommand] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
   const [sessionTitle, setSessionTitle] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchOpenAttempt, setSearchOpenAttempt] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResultState>({
+    resultIndex: -1,
+    resultCount: 0,
+  });
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    const isMac = detectIsMacPlatform();
     let disposed = false;
     let exited = false;
+    let wasEverConnected = false;
     let lastTitle = "";
     let socket: WebSocket | null = null;
     let reconnectTimer: number | null = null;
@@ -141,9 +171,17 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
     terminal.loadAddon(fit);
     terminal.loadAddon(new WebLinksAddon());
     terminal.loadAddon(new ClipboardAddon());
+    terminal.loadAddon(new ImageAddon());
+    terminal.loadAddon(new ProgressAddon());
     const unicode11 = new Unicode11Addon();
     terminal.loadAddon(unicode11);
     terminal.unicode.activeVersion = "11";
+    const search = new SearchAddon();
+    terminal.loadAddon(search);
+    searchAddonRef.current = search;
+    const searchResultsDisposable = search.onDidChangeResults(({ resultIndex, resultCount }) => {
+      setSearchResults({ resultIndex, resultCount });
+    });
 
     terminal.open(container);
     try {
@@ -154,10 +192,32 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
       /* webgl unavailable; xterm falls back to canvas */
     }
 
+    const openSearch = () => {
+      setIsSearchOpen(true);
+      setSearchOpenAttempt((previous) => previous + 1);
+    };
+
     terminal.attachCustomKeyEventHandler((event) => {
       if (event.key === "Tab" && (event.metaKey || event.ctrlKey)) return false;
+      if (isFindShortcut(event, isMac)) {
+        if (event.type === "keydown") {
+          event.preventDefault();
+          openSearch();
+        }
+        return false;
+      }
       return true;
     });
+
+    const titleDisposable = terminal.onTitleChange((title) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      lastTitle = trimmed;
+      setSessionTitle(trimmed);
+      if (!exited) document.title = titleForLiveSession(trimmed);
+    });
+
+    refocusTerminalRef.current = () => terminal.focus();
 
     const send = (message: ClientToServerMessage) => {
       if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
@@ -190,13 +250,22 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
     fitToContainer();
     terminal.focus();
 
+    const markShellDead = (code: number | null) => {
+      if (exited) return;
+      exited = true;
+      terminal.write(formatExitMarker(code));
+      document.title = titleForDeadSession(lastTitle);
+      setExitInfo({ code });
+    };
+
     const connect = () => {
       if (disposed) return;
-      const nextSocket = new WebSocket(buildWebSocketUrl(sessionId));
+      const nextSocket = new WebSocket(buildWebSocketUrl());
       socket = nextSocket;
 
       nextSocket.addEventListener("open", () => {
         if (disposed || socket !== nextSocket) return;
+        wasEverConnected = true;
         setConsecutiveFailures(0);
         sendResize(terminal.cols, terminal.rows);
       });
@@ -212,35 +281,21 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
         const parsed = serverToClientMessageSchema.safeParse(raw);
         if (!parsed.success) return;
         const message = parsed.data;
-        if (message.type === "snapshot") {
-          terminal.reset();
+        if (message.type === "output") {
           terminal.write(message.data);
-          lastTitle = message.title;
-          setSessionTitle(message.title);
-          document.title = exited ? titleForDeadSession(lastTitle) : titleForLiveSession(lastTitle);
-        } else if (message.type === "output") {
-          terminal.write(message.data);
-        } else if (message.type === "title") {
-          lastTitle = message.title;
-          setSessionTitle(message.title);
-          if (!exited) document.title = titleForLiveSession(lastTitle);
         } else if (message.type === "exit") {
-          exited = true;
-          terminal.write(formatExitMarker(message.code));
-          document.title = titleForDeadSession(lastTitle);
-          setExitInfo({ code: message.code });
+          markShellDead(message.code);
         }
       });
 
-      nextSocket.addEventListener("close", (event) => {
+      nextSocket.addEventListener("close", () => {
         if (socket === nextSocket) socket = null;
         if (disposed) return;
         if (exited) return;
-        if (event.code === WS_CLOSE_SESSION_NOT_FOUND) {
-          reloadToFreshSession();
+        if (wasEverConnected) {
+          markShellDead(null);
           return;
         }
-        if (socket !== null) return;
         setConsecutiveFailures((previous) => previous + 1);
         reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS);
       });
@@ -274,6 +329,10 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
     return () => {
       disposed = true;
       manualReconnectRef.current = null;
+      refocusTerminalRef.current = null;
+      searchAddonRef.current = null;
+      titleDisposable.dispose();
+      searchResultsDisposable.dispose();
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (resizeTimer !== null) window.clearTimeout(resizeTimer);
       observer.disconnect();
@@ -286,7 +345,65 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
       terminal.dispose();
       document.title = DEFAULT_DOCUMENT_TITLE;
     };
-  }, [sessionId]);
+  }, []);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const input = searchInputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }, [isSearchOpen, searchOpenAttempt]);
+
+  const findNextMatch = useCallback((query: string) => {
+    if (!query) {
+      searchAddonRef.current?.clearDecorations();
+      setSearchResults({ resultIndex: -1, resultCount: 0 });
+      return;
+    }
+    searchAddonRef.current?.findNext(query, { decorations: SEARCH_DECORATION_OPTIONS });
+  }, []);
+
+  const findPreviousMatch = useCallback((query: string) => {
+    if (!query) return;
+    searchAddonRef.current?.findPrevious(query, { decorations: SEARCH_DECORATION_OPTIONS });
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults({ resultIndex: -1, resultCount: 0 });
+    searchAddonRef.current?.clearDecorations();
+    refocusTerminalRef.current?.();
+  }, []);
+
+  const handleSearchInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const next = event.target.value;
+      setSearchQuery(next);
+      findNextMatch(next);
+    },
+    [findNextMatch],
+  );
+
+  const handleSearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSearch();
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          findPreviousMatch(searchQuery);
+        } else {
+          findNextMatch(searchQuery);
+        }
+      }
+    },
+    [closeSearch, findNextMatch, findPreviousMatch, searchQuery],
+  );
 
   const triggerManualReconnect = useCallback(() => {
     setIsRetryingConnection(true);
@@ -334,6 +451,10 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
   const isShellDead = exitInfo !== null;
   const isDisconnected = !isShellDead && consecutiveFailures >= DISCONNECT_MODAL_THRESHOLD_FAILURES;
   const isModalOpen = isShellDead || isDisconnected;
+  const matchLabel =
+    searchResults.resultCount === 0
+      ? "0/0"
+      : `${searchResults.resultIndex + 1}/${searchResults.resultCount}`;
 
   return (
     <div className="flex h-dvh w-dvw flex-col" style={{ background: TERMINAL_BACKGROUND_HEX }}>
@@ -359,7 +480,55 @@ export const Terminal = ({ sessionId }: TerminalProps) => {
           New terminal
         </Button>
       </header>
-      <div ref={containerRef} aria-label="terminal session" className="min-h-0 flex-1" />
+      <div className="relative min-h-0 flex-1">
+        <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" />
+        {isSearchOpen ? (
+          <InputGroup
+            role="search"
+            aria-label="find in terminal"
+            className="absolute top-2 right-3 z-10 w-80 bg-popover shadow-md dark:bg-popover"
+          >
+            <InputGroupInput
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Find"
+              aria-label="find query"
+              className="font-mono text-xs"
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupText
+                role="status"
+                aria-label="match count"
+                className="font-mono text-xs tabular-nums"
+              >
+                {matchLabel}
+              </InputGroupText>
+              <InputGroupButton
+                size="icon-xs"
+                onClick={() => findPreviousMatch(searchQuery)}
+                disabled={searchResults.resultCount === 0}
+                aria-label="previous match"
+              >
+                <ChevronUp />
+              </InputGroupButton>
+              <InputGroupButton
+                size="icon-xs"
+                onClick={() => findNextMatch(searchQuery)}
+                disabled={searchResults.resultCount === 0}
+                aria-label="next match"
+              >
+                <ChevronDown />
+              </InputGroupButton>
+              <InputGroupButton size="icon-xs" onClick={closeSearch} aria-label="close find">
+                <X />
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        ) : null}
+      </div>
 
       <AlertDialog open={isModalOpen}>
         <AlertDialogContent>

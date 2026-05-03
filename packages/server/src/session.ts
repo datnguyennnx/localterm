@@ -1,79 +1,40 @@
 import { EventEmitter } from "node:events";
-import { createRequire } from "node:module";
 import os from "node:os";
-import type * as XtermAddonSerialize from "@xterm/addon-serialize";
-import type * as XtermHeadless from "@xterm/headless";
 import { spawn, type IPty } from "node-pty";
 import {
+  COLORTERM_VALUE,
   DEFAULT_COLS,
   DEFAULT_ROWS,
-  DEFAULT_SCROLLBACK,
-  DEFAULT_TITLE,
   PTY_ENV_DENYLIST,
+  TERM_TYPE,
 } from "./constants.js";
 import { ensureSpawnHelperExecutable } from "./ensure-spawn-helper-executable.js";
-import { generateFriendlyId } from "./friendly-id.js";
 import { getDefaultShell } from "./default-shell.js";
-import type { CreateSessionInput, ServerToClientMessage, SessionMetadata } from "./types.js";
-
-const requireCjs = createRequire(import.meta.url);
-const { Terminal: HeadlessTerminalCtor } = requireCjs("@xterm/headless") as typeof XtermHeadless;
-const { SerializeAddon: SerializeAddonCtor } = requireCjs(
-  "@xterm/addon-serialize",
-) as typeof XtermAddonSerialize;
-
-type HeadlessTerminal = XtermHeadless.Terminal;
-type SerializeAddon = XtermAddonSerialize.SerializeAddon;
+import type { SpawnPtyInput } from "./types.js";
 
 interface SessionEvents {
   output: [data: string];
-  title: [title: string];
   exit: [code: number | null];
-  dispose: [];
 }
 
 export class Session extends EventEmitter<SessionEvents> {
-  readonly id: string;
-  readonly cwd: string;
   readonly shell: string;
+  readonly cwd: string;
   readonly createdAt: number;
 
   private readonly pty: IPty;
-  private readonly headless: HeadlessTerminal;
-  private readonly serialize: SerializeAddon;
-  private currentTitle: string;
   private currentCols: number;
   private currentRows: number;
   private exited = false;
-  private exitCode: number | null = null;
-  private attachmentCount = 0;
 
-  constructor(input: CreateSessionInput) {
+  constructor(input: SpawnPtyInput) {
     super();
     ensureSpawnHelperExecutable();
-    this.id = generateFriendlyId();
     this.shell = input.shell ?? getDefaultShell();
     this.cwd = input.cwd ?? os.homedir();
     this.currentCols = input.cols ?? DEFAULT_COLS;
     this.currentRows = input.rows ?? DEFAULT_ROWS;
     this.createdAt = Date.now();
-    this.currentTitle = DEFAULT_TITLE;
-
-    this.headless = new HeadlessTerminalCtor({
-      cols: this.currentCols,
-      rows: this.currentRows,
-      scrollback: DEFAULT_SCROLLBACK,
-      allowProposedApi: true,
-    });
-    this.serialize = new SerializeAddonCtor();
-    this.headless.loadAddon(this.serialize);
-
-    this.headless.onTitleChange((title) => {
-      const trimmed = title.trim();
-      if (!trimmed || trimmed === this.currentTitle) return;
-      this.currentTitle = trimmed;
-      this.emit("title", trimmed);
-    });
 
     const env: Record<string, string> = {};
     const denied = new Set(PTY_ENV_DENYLIST);
@@ -86,11 +47,11 @@ export class Session extends EventEmitter<SessionEvents> {
         env[key] = value;
       }
     }
-    env.TERM = "xterm-256color";
-    env.COLORTERM = "truecolor";
+    env.TERM = TERM_TYPE;
+    env.COLORTERM = COLORTERM_VALUE;
 
     this.pty = spawn(this.shell, [], {
-      name: "xterm-256color",
+      name: TERM_TYPE,
       cols: this.currentCols,
       rows: this.currentRows,
       cwd: this.cwd,
@@ -98,32 +59,17 @@ export class Session extends EventEmitter<SessionEvents> {
     });
 
     this.pty.onData((data) => {
-      this.headless.write(data);
       this.emit("output", data);
-    });
-
-    this.headless.onData((response) => {
-      if (this.exited) return;
-      try {
-        this.pty.write(response);
-      } catch {
-        /* PTY may have died between checks */
-      }
     });
 
     this.pty.onExit(({ exitCode }) => {
       this.exited = true;
-      this.exitCode = exitCode;
       this.emit("exit", exitCode);
     });
   }
 
   get pid(): number {
     return this.pty.pid;
-  }
-
-  get title(): string {
-    return this.currentTitle;
   }
 
   get cols(): number {
@@ -138,34 +84,6 @@ export class Session extends EventEmitter<SessionEvents> {
     return this.exited;
   }
 
-  get hasAttachments(): boolean {
-    return this.attachmentCount > 0;
-  }
-
-  attach(): void {
-    this.attachmentCount += 1;
-  }
-
-  detach(): void {
-    if (this.attachmentCount <= 0) return;
-    this.attachmentCount -= 1;
-  }
-
-  metadata(): SessionMetadata {
-    return {
-      id: this.id,
-      title: this.currentTitle,
-      cwd: this.cwd,
-      shell: this.shell,
-      pid: this.pid,
-      cols: this.currentCols,
-      rows: this.currentRows,
-      createdAt: this.createdAt,
-      exited: this.exited,
-      exitCode: this.exitCode,
-    };
-  }
-
   write(data: string): void {
     if (this.exited) return;
     this.pty.write(data);
@@ -177,22 +95,11 @@ export class Session extends EventEmitter<SessionEvents> {
     if (cols === this.currentCols && rows === this.currentRows) return;
     this.currentCols = cols;
     this.currentRows = rows;
-    this.headless.resize(cols, rows);
     try {
       this.pty.resize(cols, rows);
     } catch {
       /* PTY may have died between checks */
     }
-  }
-
-  snapshot(): ServerToClientMessage {
-    return {
-      type: "snapshot",
-      data: this.serialize.serialize(),
-      cols: this.currentCols,
-      rows: this.currentRows,
-      title: this.currentTitle,
-    };
   }
 
   kill(signal: NodeJS.Signals = "SIGHUP"): void {
@@ -206,8 +113,6 @@ export class Session extends EventEmitter<SessionEvents> {
 
   dispose(): void {
     this.kill();
-    this.headless.dispose();
     this.removeAllListeners();
-    this.emit("dispose");
   }
 }

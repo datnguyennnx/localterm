@@ -29,19 +29,13 @@ const collectOutput = async (session: Session, timeoutMs = 1500): Promise<string
 };
 
 describe("Session", () => {
-  it("spawns a shell and produces a snapshot containing typed input", async () => {
+  it("spawns a shell and emits output for typed input", async () => {
     const session = new Session({ shell: "/bin/sh" });
     try {
       await collectOutput(session);
       session.write("echo SESSION_TEST_TOKEN\n");
-      await collectOutput(session);
-      const snapshot = session.snapshot();
-      expect(snapshot.type).toBe("snapshot");
-      if (snapshot.type === "snapshot") {
-        expect(snapshot.data).toContain("SESSION_TEST_TOKEN");
-        expect(snapshot.cols).toBeGreaterThan(0);
-        expect(snapshot.rows).toBeGreaterThan(0);
-      }
+      const output = await collectOutput(session);
+      expect(output).toContain("SESSION_TEST_TOKEN");
     } finally {
       session.dispose();
     }

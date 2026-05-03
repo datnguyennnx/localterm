@@ -1,5 +1,5 @@
 import kleur from "kleur";
-import { createApiClient } from "../api-client.js";
+import { healthSchema } from "localterm-server";
 import { getFriendlyUrl } from "../constants.js";
 import { isAlive, readPid, readPort } from "../state.js";
 
@@ -16,9 +16,10 @@ export const runStatus = async (): Promise<void> => {
     return;
   }
 
-  const client = createApiClient(port);
   try {
-    const health = await client.health();
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+    if (!response.ok) throw new Error(`health check failed: ${response.status}`);
+    const health = healthSchema.parse(await response.json());
     console.log(kleur.green("● running"));
     console.log(`  pid:      ${pid}`);
     console.log(`  port:     ${port}`);

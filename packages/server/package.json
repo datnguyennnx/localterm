@@ -1,15 +1,14 @@
 {
   "name": "localterm-server",
   "version": "0.0.4",
-  "description": "PTY-backed HTTP/WebSocket server that powers localterm, built on Hono + node-pty + headless xterm.",
+  "description": "PTY-backed HTTP/WebSocket server that powers localterm, built on Hono + node-pty.",
   "keywords": [
     "hono",
     "localterm",
     "node-pty",
     "pty",
     "terminal",
-    "websocket",
-    "xterm"
+    "websocket"
   ],
   "homepage": "https://github.com/aidenybai/localterm#readme",
   "bugs": {
@@ -55,10 +54,7 @@
   "dependencies": {
     "@hono/node-server": "^1.14.0",
     "@hono/node-ws": "^1.1.1",
-    "@xterm/addon-serialize": "^0.13.0",
-    "@xterm/headless": "^5.5.0",
     "hono": "^4.6.13",
-    "nanoid": "^5.0.9",
     "node-pty": "^1.0.0",
     "zod": "^4.3.6"
   },

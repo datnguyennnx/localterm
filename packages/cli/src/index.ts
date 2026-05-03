@@ -1,8 +1,5 @@
 import { DEFAULT_HOST, DEFAULT_PORT } from "localterm-server";
 import { Command } from "commander";
-import { runKill } from "./commands/kill.js";
-import { runList } from "./commands/list.js";
-import { runNew } from "./commands/new.js";
 import { runRestart } from "./commands/restart.js";
 import { runStart } from "./commands/start.js";
 import { runStatus } from "./commands/status.js";
@@ -57,31 +54,6 @@ program
       host: options.host,
       open: options.open,
     });
-  });
-
-program
-  .command("list")
-  .alias("ls")
-  .description("list active terminal sessions")
-  .action(async () => {
-    await runList();
-  });
-
-program
-  .command("new")
-  .description("create a new terminal session")
-  .option("-c, --cwd <path>", "working directory")
-  .option("-s, --shell <shell>", "override shell")
-  .option("--no-open", "do not open browser")
-  .action(async (options: { cwd?: string; shell?: string; open: boolean }) => {
-    await runNew(options);
-  });
-
-program
-  .command("kill <id>")
-  .description("kill a terminal session by id")
-  .action(async (id: string) => {
-    await runKill(id);
   });
 
 program.parseAsync().catch((error: unknown) => {

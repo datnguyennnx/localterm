@@ -5,7 +5,7 @@
 
 Your terminal should just be a browser tab.
 
-How? Run `npx localterm start` and every browser tab becomes its own persistent shell — open a new tab to spawn another, close it to retire it, reload to restore it (vim/htop/less state and all).
+How? Run `npx localterm start` and every browser tab is one shell. Open a new tab to spawn another. Close the tab to kill it. That's it.
 
 ## Install
 
@@ -29,10 +29,10 @@ localterm start
 The mental model is **shell = browser tab**:
 
 - **New tab** → new shell
-- **Close tab** → daemon reaps the shell after a short grace window
-- **Reload** → same shell restores exactly (the page writes its session id into the URL, e.g. `http://localterm.localhost:3417/jolly-chipmunk-trea`)
+- **Close tab** → shell dies immediately
+- **Reload tab** → fresh shell (the prior one is gone; the browser will warn before reload once you've typed)
 
-On reconnect, the WebSocket sends a `serialize()` snapshot from a per-session headless xterm before live output resumes, so reloading the page (or even restarting the browser) restores vim/htop/less state byte-for-byte.
+That's the whole product. No session ids, no URL slugs, no reconnects. If you want a long-lived shell that survives browser reloads, use tmux _inside_ localterm.
 
 ## CLI
 
@@ -41,16 +41,13 @@ localterm start [-p 3417] [-H 127.0.0.1] [--no-open]   # daemonizes by default
 localterm stop
 localterm status
 localterm restart        # detached restart, logs to ~/.localterm/server.log
-localterm list           # alias: ls
-localterm new [-c cwd] [-s shell]
-localterm kill <id>
 ```
 
 State lives in `~/.localterm/` (PID, port, server log).
 
 ## Security
 
-`localterm` only binds loopback hosts (`127.0.0.1`, `localhost`, `*.localhost`, `::1`); non-loopback values are rejected. All `/api` and `/ws` routes additionally check the `Host` and `Origin` headers to defeat DNS-rebinding attacks.
+`localterm` only binds loopback hosts (`127.0.0.1`, `localhost`, `*.localhost`, `::1`); non-loopback values are rejected. The `/api/health` and `/ws` routes additionally check the `Host` and `Origin` headers to defeat DNS-rebinding attacks.
 
 ## Structure
 
@@ -60,8 +57,8 @@ This is a pnpm monorepo built on [vite-plus](https://github.com/voidzero-dev/vit
 apps/
   web/          # vite + react + tailwind v4 + xterm.js
 packages/
-  server/       # hono + ws + node-pty + headless xterm (state mirror, idle reaper)
-  cli/          # commander entry: start/stop/status/restart/list/new/kill
+  server/       # hono + ws + node-pty (one PTY per WebSocket, killed on close)
+  cli/          # commander entry: start/stop/status/restart
 ```
 
 ## Resources & Contributing Back

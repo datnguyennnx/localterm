@@ -1,5 +1,3 @@
-export { WS_CLOSE_SESSION_NOT_FOUND } from "localterm-server/protocol";
-
 export const RECONNECT_DELAY_MS = 1000;
 export const RESIZE_DEBOUNCE_MS = 80;
 export const TERMINAL_FONT_SIZE_PX = 13;
@@ -12,3 +10,7 @@ export const DISCONNECT_MODAL_THRESHOLD_FAILURES = 2;
 export const RESTART_COMMAND = "npx localterm@latest start";
 export const COPY_FEEDBACK_MS = 1500;
 export const RETRY_BUTTON_FEEDBACK_MS = 800;
+
+export const SEARCH_MATCH_BACKGROUND_HEX = "#ffc79944";
+export const SEARCH_ACTIVE_MATCH_BACKGROUND_HEX = "#ffc799";
+export const SEARCH_ACTIVE_MATCH_BORDER_HEX = "#ff8080";

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_INPUT_BYTES } from "./constants.js";
-import {
-  clientToServerMessageSchema,
-  createSessionInputSchema,
-  serverToClientMessageSchema,
-} from "./schemas.js";
+import { clientToServerMessageSchema, serverToClientMessageSchema } from "./schemas.js";
 
 describe("clientToServerMessageSchema", () => {
   it("accepts an input frame", () => {
@@ -55,35 +51,14 @@ describe("clientToServerMessageSchema", () => {
   });
 });
 
-describe("createSessionInputSchema", () => {
-  it("accepts an empty body", () => {
-    expect(createSessionInputSchema.safeParse({}).success).toBe(true);
-  });
-
-  it("accepts known fields", () => {
-    const result = createSessionInputSchema.safeParse({
-      cwd: "/tmp",
-      shell: "/bin/zsh",
-      cols: 80,
-      rows: 24,
-      env: { FOO: "bar" },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects oversized cwd", () => {
-    const result = createSessionInputSchema.safeParse({ cwd: "x".repeat(10_000) });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects unknown fields", () => {
-    const result = createSessionInputSchema.safeParse({ malicious: true });
-    expect(result.success).toBe(false);
-  });
-});
-
 describe("serverToClientMessageSchema", () => {
   it("accepts every variant", () => {
+    expect(serverToClientMessageSchema.safeParse({ type: "output", data: "x" }).success).toBe(true);
+    expect(serverToClientMessageSchema.safeParse({ type: "exit", code: 0 }).success).toBe(true);
+    expect(serverToClientMessageSchema.safeParse({ type: "exit", code: null }).success).toBe(true);
+  });
+
+  it("rejects the legacy snapshot and title frames (titles are now client-parsed)", () => {
     expect(
       serverToClientMessageSchema.safeParse({
         type: "snapshot",
@@ -92,10 +67,9 @@ describe("serverToClientMessageSchema", () => {
         rows: 24,
         title: "shell",
       }).success,
-    ).toBe(true);
-    expect(serverToClientMessageSchema.safeParse({ type: "output", data: "x" }).success).toBe(true);
-    expect(serverToClientMessageSchema.safeParse({ type: "title", title: "x" }).success).toBe(true);
-    expect(serverToClientMessageSchema.safeParse({ type: "exit", code: 0 }).success).toBe(true);
-    expect(serverToClientMessageSchema.safeParse({ type: "exit", code: null }).success).toBe(true);
+    ).toBe(false);
+    expect(serverToClientMessageSchema.safeParse({ type: "title", title: "shell" }).success).toBe(
+      false,
+    );
   });
 });
