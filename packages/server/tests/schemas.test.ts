@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { MAX_INPUT_BYTES } from "./constants.js";
-import { clientToServerMessageSchema, serverToClientMessageSchema } from "./schemas.js";
+import { describe, expect, it } from "vite-plus/test";
+import { MAX_INPUT_BYTES } from "../src/constants.js";
+import { clientToServerMessageSchema, serverToClientMessageSchema } from "../src/schemas.js";
 
 describe("clientToServerMessageSchema", () => {
   it("accepts an input frame", () => {
@@ -56,9 +56,12 @@ describe("serverToClientMessageSchema", () => {
     expect(serverToClientMessageSchema.safeParse({ type: "output", data: "x" }).success).toBe(true);
     expect(serverToClientMessageSchema.safeParse({ type: "exit", code: 0 }).success).toBe(true);
     expect(serverToClientMessageSchema.safeParse({ type: "exit", code: null }).success).toBe(true);
+    expect(serverToClientMessageSchema.safeParse({ type: "title", title: "shell" }).success).toBe(
+      true,
+    );
   });
 
-  it("rejects the legacy snapshot and title frames (titles are now client-parsed)", () => {
+  it("rejects the legacy snapshot frame", () => {
     expect(
       serverToClientMessageSchema.safeParse({
         type: "snapshot",
@@ -68,8 +71,9 @@ describe("serverToClientMessageSchema", () => {
         title: "shell",
       }).success,
     ).toBe(false);
-    expect(serverToClientMessageSchema.safeParse({ type: "title", title: "shell" }).success).toBe(
-      false,
-    );
+  });
+
+  it("rejects title frames missing the title field", () => {
+    expect(serverToClientMessageSchema.safeParse({ type: "title" }).success).toBe(false);
   });
 });

@@ -60,7 +60,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "typescript": "^5.9.3",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.19"
+    "vite-plus": "^0.1.12"
   },
   "engines": {
     "node": ">=22"

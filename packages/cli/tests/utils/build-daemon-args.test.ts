@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildDaemonStartArgs } from "./build-daemon-args.js";
+import { describe, expect, it } from "vite-plus/test";
+import { buildDaemonStartArgs } from "../../src/utils/build-daemon-args.js";
 
 describe("buildDaemonStartArgs", () => {
   it("includes the start subcommand, port, and host", () => {

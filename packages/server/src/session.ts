@@ -11,16 +11,21 @@ import {
   TERM_TYPE,
   TITLE_POLL_INTERVAL_MS,
 } from "./constants.js";
+// Note: titles are emitted on a dedicated `title` event so they travel as a
+// separate WebSocket frame. We deliberately do NOT splice OSC sequences into
+// the PTY output stream — doing so corrupts in-flight escape sequences from
+// modern TUIs (e.g. Cursor Agent / Claude Code use DECSET 2026 synchronized
+// output mode and any byte landing inside that frame breaks the parser state).
 import { ensureSpawnHelperExecutable } from "./ensure-spawn-helper-executable.js";
 import { getDefaultShell } from "./default-shell.js";
 import type { SpawnPtyInput } from "./types.js";
-import { encodeOscTitle } from "./utils/encode-osc-title.js";
 import { formatWorkingDirectoryTitle } from "./utils/format-working-directory-title.js";
 import { resolveCwdForPid } from "./utils/resolve-cwd-for-pid.js";
 
 interface SessionEvents {
   output: [data: string];
   exit: [code: number | null];
+  title: [title: string];
 }
 
 export class Session extends EventEmitter<SessionEvents> {
@@ -147,7 +152,7 @@ export class Session extends EventEmitter<SessionEvents> {
       if (this.exited) return;
       if (nextTitle && nextTitle !== this.lastEmittedTitle) {
         this.lastEmittedTitle = nextTitle;
-        this.emit("output", encodeOscTitle(nextTitle));
+        this.emit("title", nextTitle);
       }
     } catch {
       /* polling errors are non-fatal; the next tick will retry */

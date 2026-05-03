@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as state from "../state.js";
-import { runStartPreflight } from "./start-preflight.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import * as state from "../../src/state.js";
+import { runStartPreflight } from "../../src/utils/start-preflight.js";
 
 beforeEach(() => {
   vi.spyOn(state, "readPid").mockReturnValue(null);

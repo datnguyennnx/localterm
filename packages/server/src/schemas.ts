@@ -42,7 +42,15 @@ const exitMessageSchema = z
   })
   .strict();
 
+const titleMessageSchema = z
+  .object({
+    type: z.literal("title"),
+    title: z.string(),
+  })
+  .strict();
+
 export const serverToClientMessageSchema = z.discriminatedUnion("type", [
   outputMessageSchema,
   exitMessageSchema,
+  titleMessageSchema,
 ]);

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { Session } from "./session.js";
+import { describe, expect, it } from "vite-plus/test";
+import { Session } from "../src/session.js";
 
 const waitFor = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
   Promise.race([
@@ -79,24 +79,26 @@ describe("Session", () => {
     }
   });
 
-  it("injects an OSC 2 title sequence into the output stream while idle", async () => {
+  it("emits titles on a dedicated event channel (never spliced into PTY output)", async () => {
     const session = new Session({ shell: "/bin/sh" });
-    const oscIntroducer = `${String.fromCharCode(0x1b)}]2;`;
-    const bel = String.fromCharCode(0x07);
     try {
-      const sawTitle = await waitFor(
-        new Promise<boolean>((resolve) => {
-          const onData = (chunk: string) => {
-            if (chunk.includes(oscIntroducer) && chunk.includes(bel)) {
-              session.off("output", onData);
-              resolve(true);
-            }
-          };
-          session.on("output", onData);
+      const observedTitle = await waitFor(
+        new Promise<string>((resolve) => {
+          session.once("title", (title) => resolve(title));
         }),
         2000,
       );
-      expect(sawTitle).toBe(true);
+      expect(observedTitle.length).toBeGreaterThan(0);
+
+      const escapeChar = String.fromCharCode(0x1b);
+      const outputChunks: string[] = [];
+      const onData = (chunk: string) => outputChunks.push(chunk);
+      session.on("output", onData);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      session.off("output", onData);
+      const combined = outputChunks.join("");
+      expect(combined).not.toContain(`${escapeChar}]2;`);
+      expect(combined).not.toContain(`${escapeChar}]0;`);
     } finally {
       session.dispose();
     }
@@ -106,13 +108,13 @@ describe("Session", () => {
     const session = new Session({ shell: "/bin/sh" });
     await collectOutput(session);
     session.dispose();
-    let postDisposeOutput = "";
-    const onData = (chunk: string) => {
-      postDisposeOutput += chunk;
+    let postDisposeTitleCount = 0;
+    const onTitle = () => {
+      postDisposeTitleCount += 1;
     };
-    session.on("output", onData);
+    session.on("title", onTitle);
     await new Promise((resolve) => setTimeout(resolve, 800));
-    session.off("output", onData);
-    expect(postDisposeOutput).toBe("");
+    session.off("title", onTitle);
+    expect(postDisposeTitleCount).toBe(0);
   });
 });

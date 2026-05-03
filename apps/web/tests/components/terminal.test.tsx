@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Terminal } from "./terminal";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { Terminal } from "../../src/components/terminal";
 
 interface FakeWebSocketHandle {
   url: string;
@@ -15,6 +15,7 @@ interface FakeWebSocketHandle {
 interface FakeXtermHandle {
   customKeyEventHandler: ((event: KeyboardEvent) => boolean) | null;
   fireTitleChange: (title: string) => void;
+  getOptions: () => Record<string, unknown>;
 }
 
 interface FakeSearchAddonHandle {
@@ -87,15 +88,18 @@ vi.mock("@xterm/xterm", () => {
     cols = 80;
     rows = 24;
     unicode = { activeVersion: "11" };
+    options: Record<string, unknown> = {};
     private titleListeners = new Set<(title: string) => void>();
     private handle: FakeXtermHandle;
 
-    constructor() {
+    constructor(options: Record<string, unknown> = {}) {
+      this.options = { ...options };
       this.handle = {
         customKeyEventHandler: null,
         fireTitleChange: (title: string) => {
           for (const listener of this.titleListeners) listener(title);
         },
+        getOptions: () => this.options,
       };
       fakeXterms.push(this.handle);
     }
@@ -304,14 +308,12 @@ describe("Terminal modal", () => {
 });
 
 describe("Terminal title", () => {
-  it("propagates xterm title changes into the header and document.title", () => {
+  it("propagates xterm title changes into document.title for the browser tab", () => {
     render(<Terminal />);
-    expect(screen.getByText("shell")).toBeInTheDocument();
 
     act(() => {
       fakeXterms[0]?.fireTitleChange("vim foo.ts");
     });
-    expect(screen.getByText("vim foo.ts")).toBeInTheDocument();
     expect(document.title).toBe("vim foo.ts");
   });
 });
@@ -404,7 +406,7 @@ describe("Terminal Cmd+F search", () => {
       fakeSearchAddons[0]?.fireResults({ resultIndex: 2, resultCount: 7 });
     });
 
-    expect(screen.getByText("3/7")).toBeInTheDocument();
+    expect(screen.getByText("3/7")).toBeDefined();
   });
 
   it("focuses and selects the find input on first open", () => {
@@ -460,5 +462,55 @@ describe("Terminal Cmd+F search", () => {
     expect(selectSpy).toHaveBeenCalled();
     expect(wasNotPrevented).toBe(false);
     expect(input.value).toBe("needle");
+  });
+});
+
+const installFakeLocalStorage = (initial: Record<string, string> = {}) => {
+  const store = new Map<string, string>(Object.entries(initial));
+  const fakeStorage: Storage = {
+    get length() {
+      return store.size;
+    },
+    clear: () => {
+      store.clear();
+    },
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+  };
+  vi.stubGlobal("localStorage", fakeStorage);
+};
+
+describe("Terminal theme picker", () => {
+  it("seeds xterm with the default Vesper theme when no preference is stored", () => {
+    installFakeLocalStorage();
+    render(<Terminal />);
+    const seededTheme = fakeXterms[0]?.getOptions().theme as { background?: string } | undefined;
+    expect(seededTheme?.background).toBe("#101010");
+  });
+
+  it("seeds xterm with the stored theme on mount", () => {
+    installFakeLocalStorage({ "localterm:terminal-theme-id": "dracula" });
+    render(<Terminal />);
+    const seededTheme = fakeXterms[0]?.getOptions().theme as { background?: string } | undefined;
+    expect(seededTheme?.background).toBe("#282a36");
+  });
+
+  it("falls back to the default theme when the stored id is unknown", () => {
+    installFakeLocalStorage({ "localterm:terminal-theme-id": "totally-made-up" });
+    render(<Terminal />);
+    const seededTheme = fakeXterms[0]?.getOptions().theme as { background?: string } | undefined;
+    expect(seededTheme?.background).toBe("#101010");
+  });
+
+  it("exposes a labelled theme picker trigger in the toolbar", () => {
+    installFakeLocalStorage();
+    render(<Terminal />);
+    expect(screen.getByLabelText("terminal theme")).not.toBeNull();
   });
 });

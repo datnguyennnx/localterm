@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { pollForDaemonReady } from "./poll-for-daemon-ready.js";
+import { describe, expect, it, vi } from "vite-plus/test";
+import { pollForDaemonReady } from "../../src/utils/poll-for-daemon-ready.js";
 
 const STANDARD_OPTIONS = {
   childPid: 12345,

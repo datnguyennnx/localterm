@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { formatWorkingDirectoryTitle } from "./format-working-directory-title.js";
+import { describe, expect, it } from "vite-plus/test";
+import { formatWorkingDirectoryTitle } from "../../src/utils/format-working-directory-title.js";
 
 const home = "/Users/tester";
 

@@ -13,7 +13,31 @@ export const CWD_RESOLVE_BACKOFF_MS = 30_000;
 export const TITLE_MAX_PATH_SEGMENTS = 3;
 export const TITLE_TRUNCATION_PREFIX = "…";
 
-export const PTY_ENV_DENYLIST = ["LOCALTERM_DAEMON_CHILD"];
+/**
+ * Strip terminal-emulator identity env vars inherited from the daemon's parent.
+ * If we leak e.g. TERM_PROGRAM=ghostty, modern Ink-based TUIs (Cursor Agent,
+ * Claude Code) will probe for that terminal's protocol (kitty keyboard,
+ * XTQVERSION, XTGETTCAP, OSC 1337, etc.) and — when xterm.js doesn't answer —
+ * fall back to a degraded inline-plain rendering instead of the full boxed
+ * TUI. Removing these lets the TUI treat us as a generic xterm-256color and
+ * render normally.
+ */
+export const PTY_ENV_DENYLIST = [
+  "LOCALTERM_DAEMON_CHILD",
+  "TERM_PROGRAM",
+  "TERM_PROGRAM_VERSION",
+  "TERM_SESSION_ID",
+  "ITERM_SESSION_ID",
+  "ITERM_PROFILE",
+  "KITTY_WINDOW_ID",
+  "KITTY_PID",
+  "WT_SESSION",
+  "WT_PROFILE_ID",
+  "GHOSTTY_RESOURCES_DIR",
+  "GHOSTTY_BIN_DIR",
+  "VSCODE_INJECTION",
+  "VSCODE_GIT_IPC_HANDLE",
+];
 
 export const MAX_INPUT_BYTES = 64 * 1024;
 export const MAX_COLS = 1000;

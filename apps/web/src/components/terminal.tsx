@@ -7,7 +7,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as XtermTerminal } from "@xterm/xterm";
-import { Check, ChevronDown, ChevronUp, Copy, Plus, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertDialog,
@@ -28,11 +28,16 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ThemePicker } from "@/components/theme-picker";
 import {
   COPY_FEEDBACK_MS,
   DEAD_SESSION_TITLE_PREFIX,
   DEFAULT_DOCUMENT_TITLE,
   DISCONNECT_MODAL_THRESHOLD_FAILURES,
+  FAVICON_ACTIVE_DEBOUNCE_MS,
+  FAVICON_IDLE_DEBOUNCE_MS,
+  FALLBACK_TERMINAL_BACKGROUND_HEX,
   RECONNECT_DELAY_MS,
   RESIZE_DEBOUNCE_MS,
   RESTART_COMMAND,
@@ -40,15 +45,18 @@ import {
   SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
   SEARCH_ACTIVE_MATCH_BORDER_HEX,
   SEARCH_MATCH_BACKGROUND_HEX,
-  TERMINAL_BACKGROUND_HEX,
   TERMINAL_FONT_SIZE_PX,
   TERMINAL_LINE_HEIGHT,
   TERMINAL_SCROLLBACK_LINES,
 } from "@/lib/constants";
 import { serverToClientMessageSchema } from "@/lib/schemas";
+import { findTerminalThemeById } from "@/lib/terminal-themes";
 import type { ClientToServerMessage } from "@/lib/types";
 import { detectIsMacPlatform } from "@/utils/detect-is-mac-platform";
 import { isFindShortcut } from "@/utils/is-find-shortcut";
+import { loadStoredTerminalThemeId } from "@/utils/load-stored-terminal-theme-id";
+import { storeTerminalThemeId } from "@/utils/store-terminal-theme-id";
+import { setTabFaviconState } from "@/utils/tab-favicon";
 import "@xterm/xterm/css/xterm.css";
 
 const formatExitMarker = (code: number | null): string => {
@@ -59,31 +67,6 @@ const formatExitMarker = (code: number | null): string => {
 const titleForLiveSession = (raw: string): string => raw || DEFAULT_DOCUMENT_TITLE;
 const titleForDeadSession = (raw: string): string =>
   `${DEAD_SESSION_TITLE_PREFIX}${raw || DEFAULT_DOCUMENT_TITLE}`;
-
-const TERMINAL_THEME_VESPER = {
-  background: TERMINAL_BACKGROUND_HEX,
-  foreground: "#ffffff",
-  cursor: "#ffc799",
-  cursorAccent: TERMINAL_BACKGROUND_HEX,
-  selectionBackground: "#2a2a2a",
-  selectionForeground: "#ffffff",
-  black: TERMINAL_BACKGROUND_HEX,
-  red: "#ff8080",
-  green: "#99ffe4",
-  yellow: "#ffc799",
-  blue: "#a0a0a0",
-  magenta: "#ffc799",
-  cyan: "#99ffe4",
-  white: "#ffffff",
-  brightBlack: "#505050",
-  brightRed: "#ff9999",
-  brightGreen: "#b3ffe4",
-  brightYellow: "#ffd1a8",
-  brightBlue: "#b0b0b0",
-  brightMagenta: "#ffc799",
-  brightCyan: "#66ddcc",
-  brightWhite: "#ffffff",
-};
 
 const SEARCH_DECORATION_OPTIONS = {
   matchBackground: SEARCH_MATCH_BACKGROUND_HEX,
@@ -119,19 +102,24 @@ interface SearchResultState {
   resultCount: number;
 }
 
-export const Terminal = () => {
+interface TerminalProps {
+  onModalOpenChange?: (open: boolean) => void;
+}
+
+export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const terminalRef = useRef<XtermTerminal | null>(null);
   const manualReconnectRef = useRef<(() => void) | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const refocusTerminalRef = useRef<(() => void) | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const retryFeedbackTimerRef = useRef<number | null>(null);
   const copyFeedbackTimerRef = useRef<number | null>(null);
+  const initialThemeIdRef = useRef<string>(loadStoredTerminalThemeId());
   const [exitInfo, setExitInfo] = useState<{ code: number | null } | null>(null);
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   const [hasCopiedRestartCommand, setHasCopiedRestartCommand] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
-  const [sessionTitle, setSessionTitle] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchOpenAttempt, setSearchOpenAttempt] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,6 +127,8 @@ export const Terminal = () => {
     resultIndex: -1,
     resultCount: 0,
   });
+  const [activeThemeId, setActiveThemeId] = useState<string>(initialThemeIdRef.current);
+  const activeTheme = useMemo(() => findTerminalThemeById(activeThemeId), [activeThemeId]);
   const isMac = useMemo(detectIsMacPlatform, []);
 
   useEffect(() => {
@@ -152,6 +142,50 @@ export const Terminal = () => {
     let socket: WebSocket | null = null;
     let reconnectTimer: number | null = null;
     let resizeTimer: number | null = null;
+    let faviconActiveTimer: number | null = null;
+    let faviconIdleTimer: number | null = null;
+    let faviconState: "idle" | "active" = "idle";
+
+    const noteOutputActivity = () => {
+      if (faviconIdleTimer !== null) {
+        window.clearTimeout(faviconIdleTimer);
+        faviconIdleTimer = null;
+      }
+      if (faviconState === "idle" && faviconActiveTimer === null) {
+        faviconActiveTimer = window.setTimeout(() => {
+          faviconActiveTimer = null;
+          if (disposed || exited) return;
+          faviconState = "active";
+          setTabFaviconState("active");
+        }, FAVICON_ACTIVE_DEBOUNCE_MS);
+      }
+      faviconIdleTimer = window.setTimeout(() => {
+        faviconIdleTimer = null;
+        if (faviconActiveTimer !== null) {
+          window.clearTimeout(faviconActiveTimer);
+          faviconActiveTimer = null;
+        }
+        if (faviconState === "active") {
+          faviconState = "idle";
+          setTabFaviconState("idle");
+        }
+      }, FAVICON_IDLE_DEBOUNCE_MS);
+    };
+
+    const resetFavicon = () => {
+      if (faviconActiveTimer !== null) {
+        window.clearTimeout(faviconActiveTimer);
+        faviconActiveTimer = null;
+      }
+      if (faviconIdleTimer !== null) {
+        window.clearTimeout(faviconIdleTimer);
+        faviconIdleTimer = null;
+      }
+      if (faviconState === "active") {
+        faviconState = "idle";
+        setTabFaviconState("idle");
+      }
+    };
 
     void document.fonts.load(`${TERMINAL_FONT_SIZE_PX}px "Geist Mono"`).catch(() => {});
 
@@ -163,10 +197,11 @@ export const Terminal = () => {
       fontSize: TERMINAL_FONT_SIZE_PX,
       lineHeight: TERMINAL_LINE_HEIGHT,
       scrollback: TERMINAL_SCROLLBACK_LINES,
-      theme: TERMINAL_THEME_VESPER,
+      theme: findTerminalThemeById(initialThemeIdRef.current).colors,
       macOptionIsMeta: true,
       scrollOnUserInput: true,
     });
+    terminalRef.current = terminal;
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.loadAddon(new WebLinksAddon());
@@ -209,13 +244,14 @@ export const Terminal = () => {
       return true;
     });
 
-    const titleDisposable = terminal.onTitleChange((title) => {
-      const trimmed = title.trim();
+    const applyIncomingTitle = (rawTitle: string) => {
+      const trimmed = rawTitle.trim();
       if (!trimmed) return;
       lastTitle = trimmed;
-      setSessionTitle(trimmed);
       if (!exited) document.title = titleForLiveSession(trimmed);
-    });
+    };
+
+    const titleDisposable = terminal.onTitleChange(applyIncomingTitle);
 
     refocusTerminalRef.current = () => terminal.focus();
 
@@ -253,6 +289,8 @@ export const Terminal = () => {
     const markShellDead = (code: number | null) => {
       if (exited) return;
       exited = true;
+      resetFavicon();
+      setTabFaviconState("dead");
       terminal.write(formatExitMarker(code));
       document.title = titleForDeadSession(lastTitle);
       setExitInfo({ code });
@@ -283,7 +321,11 @@ export const Terminal = () => {
         const message = parsed.data;
         if (message.type === "output") {
           terminal.write(message.data);
+          noteOutputActivity();
+        } else if (message.type === "title") {
+          applyIncomingTitle(message.title);
         } else if (message.type === "exit") {
+          resetFavicon();
           markShellDead(message.code);
         }
       });
@@ -331,10 +373,12 @@ export const Terminal = () => {
       manualReconnectRef.current = null;
       refocusTerminalRef.current = null;
       searchAddonRef.current = null;
+      terminalRef.current = null;
       titleDisposable.dispose();
       searchResultsDisposable.dispose();
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      resetFavicon();
       observer.disconnect();
       try {
         socket?.close();
@@ -345,6 +389,17 @@ export const Terminal = () => {
       terminal.dispose();
       document.title = DEFAULT_DOCUMENT_TITLE;
     };
+  }, []);
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    terminal.options.theme = activeTheme.colors;
+  }, [activeTheme]);
+
+  const handleThemeChange = useCallback((nextThemeId: string) => {
+    setActiveThemeId(nextThemeId);
+    storeTerminalThemeId(nextThemeId);
   }, []);
 
   useEffect(() => {
@@ -375,6 +430,11 @@ export const Terminal = () => {
     setSearchResults({ resultIndex: -1, resultCount: 0 });
     searchAddonRef.current?.clearDecorations();
     refocusTerminalRef.current?.();
+  }, []);
+
+  const openSearchOverlay = useCallback(() => {
+    setIsSearchOpen(true);
+    setSearchOpenAttempt((previous) => previous + 1);
   }, []);
 
   const handleSearchInputChange = useCallback(
@@ -456,42 +516,81 @@ export const Terminal = () => {
   const isShellDead = exitInfo !== null;
   const isDisconnected = !isShellDead && consecutiveFailures >= DISCONNECT_MODAL_THRESHOLD_FAILURES;
   const isModalOpen = isShellDead || isDisconnected;
+
+  useEffect(() => {
+    onModalOpenChange?.(isModalOpen);
+  }, [isModalOpen, onModalOpenChange]);
   const matchLabel =
     searchResults.resultCount === 0
       ? "0/0"
       : `${searchResults.resultIndex + 1}/${searchResults.resultCount}`;
 
+  const pageBackground = activeTheme.colors.background ?? FALLBACK_TERMINAL_BACKGROUND_HEX;
+
   return (
-    <div className="flex h-dvh w-dvw flex-col" style={{ background: TERMINAL_BACKGROUND_HEX }}>
-      <header className="flex h-10 flex-none items-center justify-between gap-3 border-b border-border bg-background px-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {isShellDead ? (
-            <Badge variant="destructive" role="status" aria-live="polite">
-              {exitInfo?.code === null ? "exited" : `exited · code ${exitInfo?.code}`}
-            </Badge>
-          ) : null}
-          <span className="truncate font-mono text-sm text-muted-foreground">
-            {sessionTitle || "shell"}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="open a new shell in a new browser tab"
-          title="opens in a new browser tab"
-          render={<a href="/" target="_blank" rel="noopener noreferrer" />}
-        >
-          <Plus data-icon="inline-start" />
-          New terminal
-        </Button>
-      </header>
-      <div className="relative min-h-0 flex-1">
+    <div className="h-dvh w-dvw" style={{ background: pageBackground }}>
+      <div className="relative h-full w-full">
         <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" />
+        {isShellDead ? (
+          <Badge
+            variant="destructive"
+            role="status"
+            aria-live="polite"
+            className="absolute top-2 left-3 z-10"
+          >
+            {exitInfo?.code === null ? "exited" : `exited · code ${exitInfo?.code}`}
+          </Badge>
+        ) : null}
+        {isSearchOpen ? null : (
+          <div
+            role="toolbar"
+            aria-label="terminal actions"
+            className="absolute top-2 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border/60 bg-background/70 p-0.5 text-muted-foreground shadow-xs backdrop-blur-md"
+          >
+            <ThemePicker value={activeThemeId} onValueChange={handleThemeChange} />
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={openSearchOverlay}
+                    aria-label="find in terminal"
+                    className="hover:text-foreground"
+                  />
+                }
+              >
+                <Search />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={8}>
+                Find {isMac ? "(\u2318F)" : "(Ctrl+F)"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="open a new shell in a new browser tab"
+                    render={<a href="/" target="_blank" rel="noopener noreferrer" />}
+                    className="hover:text-foreground"
+                  />
+                }
+              >
+                <Plus />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={8}>
+                New shell (new tab)
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         {isSearchOpen ? (
           <InputGroup
             role="search"
             aria-label="find in terminal"
-            className="absolute top-2 right-3 z-10 w-80 bg-popover shadow-md dark:bg-popover"
+            className="absolute top-2 right-3 z-10 w-80 border-border/60 bg-background/70 text-muted-foreground shadow-xs backdrop-blur-md dark:bg-background/70"
           >
             <InputGroupInput
               ref={searchInputRef}
@@ -501,13 +600,13 @@ export const Terminal = () => {
               onKeyDown={handleSearchKeyDown}
               placeholder="Find"
               aria-label="find query"
-              className="font-mono text-xs"
+              className="text-xs"
             />
             <InputGroupAddon align="inline-end">
               <InputGroupText
                 role="status"
                 aria-label="match count"
-                className="font-mono text-xs tabular-nums"
+                className="text-xs tabular-nums"
               >
                 {matchLabel}
               </InputGroupText>
@@ -526,9 +625,6 @@ export const Terminal = () => {
                 aria-label="next match"
               >
                 <ChevronDown />
-              </InputGroupButton>
-              <InputGroupButton size="icon-xs" onClick={closeSearch} aria-label="close find">
-                <X />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>

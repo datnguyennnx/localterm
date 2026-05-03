@@ -1,9 +1,14 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Terminal } from "@/components/terminal";
 
 export const App = () => {
+  const isModalOpenRef = useRef(false);
+
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (isModalOpenRef.current) return;
+      event.preventDefault();
+    };
     const armBeforeUnload = () => window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("keydown", armBeforeUnload, { once: true });
     return () => {
@@ -12,5 +17,9 @@ export const App = () => {
     };
   }, []);
 
-  return <Terminal />;
+  const handleModalOpenChange = useCallback((open: boolean) => {
+    isModalOpenRef.current = open;
+  }, []);
+
+  return <Terminal onModalOpenChange={handleModalOpenChange} />;
 };

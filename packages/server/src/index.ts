@@ -97,11 +97,13 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           registry.register(session);
 
           const onOutput = (data: string) => safeSend(ws, { type: "output", data });
+          const onTitle = (title: string) => safeSend(ws, { type: "title", title });
           const onExit = (code: number | null) => {
             safeSend(ws, { type: "exit", code });
             ws.close();
           };
           session.on("output", onOutput);
+          session.on("title", onTitle);
           session.on("exit", onExit);
         },
         onMessage(event) {

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { getFriendlyUrl } from "./constants.js";
+import { describe, expect, it } from "vite-plus/test";
+import { getFriendlyUrl } from "../src/constants.js";
 
 describe("getFriendlyUrl", () => {
   it("formats the named-host URL with the bound port", () => {

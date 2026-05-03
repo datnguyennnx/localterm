@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { Hono } from "hono";
-import { isLoopbackHost, loopbackMiddleware } from "./security.js";
+import { isLoopbackHost, loopbackMiddleware } from "../src/security.js";
 
 const app = new Hono();
 app.use("*", loopbackMiddleware);
