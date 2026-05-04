@@ -5,12 +5,13 @@ const STANDARD_OPTIONS = {
   childPid: 12345,
   intervalMs: 10,
   maxWaitMs: 100,
+  logPath: "/tmp/localterm.log",
 };
 
 const noopSleep = (): Promise<void> => Promise.resolve();
 
 describe("pollForDaemonReady", () => {
-  it("returns ready with the new port once a different value appears", async () => {
+  it("resolves with the new port once a different value appears", async () => {
     let tick = 0;
     const result = await pollForDaemonReady({
       ...STANDARD_OPTIONS,
@@ -22,7 +23,7 @@ describe("pollForDaemonReady", () => {
       },
       sleep: noopSleep,
     });
-    expect(result).toEqual({ outcome: "ready", port: 4242 });
+    expect(result).toEqual({ ok: true, port: 4242 });
   });
 
   it("rejects a stale port that matches initialPort and keeps polling", async () => {
@@ -40,10 +41,10 @@ describe("pollForDaemonReady", () => {
       },
       sleep: noopSleep,
     });
-    expect(result).toEqual({ outcome: "ready", port: newPort });
+    expect(result).toEqual({ ok: true, port: newPort });
   });
 
-  it("returns died when the child process disappears mid-poll", async () => {
+  it("returns a daemon-died CliError when the child process disappears mid-poll", async () => {
     let tick = 0;
     const result = await pollForDaemonReady({
       ...STANDARD_OPTIONS,
@@ -55,10 +56,14 @@ describe("pollForDaemonReady", () => {
       readPort: () => null,
       sleep: noopSleep,
     });
-    expect(result).toEqual({ outcome: "died", port: null });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe("daemon-died");
+      expect(result.error.code).toBe("E_LT_CLI_DAEMON_DIED");
+    }
   });
 
-  it("returns timeout when the deadline expires without a fresh port", async () => {
+  it("returns a daemon-ready-timeout CliError when the deadline expires without a fresh port", async () => {
     const result = await pollForDaemonReady({
       ...STANDARD_OPTIONS,
       initialPort: null,
@@ -66,10 +71,14 @@ describe("pollForDaemonReady", () => {
       readPort: () => null,
       sleep: noopSleep,
     });
-    expect(result).toEqual({ outcome: "timeout", port: null });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe("daemon-ready-timeout");
+      expect(result.error.code).toBe("E_LT_CLI_DAEMON_READY_TIMEOUT");
+    }
   });
 
-  it("returns ready immediately on the first tick when a fresh port is already present", async () => {
+  it("resolves immediately on the first tick when a fresh port is already present", async () => {
     const isAlive = vi.fn(() => true);
     const readPort = vi.fn(() => 7777);
     const result = await pollForDaemonReady({
@@ -79,7 +88,7 @@ describe("pollForDaemonReady", () => {
       readPort,
       sleep: noopSleep,
     });
-    expect(result).toEqual({ outcome: "ready", port: 7777 });
+    expect(result).toEqual({ ok: true, port: 7777 });
     expect(isAlive).toHaveBeenCalledOnce();
     expect(readPort).toHaveBeenCalledOnce();
   });
@@ -91,6 +100,7 @@ describe("pollForDaemonReady", () => {
       initialPort: null,
       intervalMs: 10,
       maxWaitMs: 100,
+      logPath: "/tmp/localterm.log",
       isAlive: () => true,
       readPort: () => null,
       sleep: sleepSpy,

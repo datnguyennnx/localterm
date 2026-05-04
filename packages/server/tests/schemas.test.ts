@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { MAX_INPUT_BYTES } from "../src/constants.js";
+import { MAX_INPUT_BYTES, MAX_OUTPUT_BYTES, MAX_TITLE_LENGTH } from "../src/constants.js";
 import { clientToServerMessageSchema, serverToClientMessageSchema } from "../src/schemas.js";
 
 describe("clientToServerMessageSchema", () => {
@@ -75,5 +75,19 @@ describe("serverToClientMessageSchema", () => {
 
   it("rejects title frames missing the title field", () => {
     expect(serverToClientMessageSchema.safeParse({ type: "title" }).success).toBe(false);
+  });
+
+  it("rejects oversized output payloads (defense in depth against compromised servers)", () => {
+    const oversized = "a".repeat(MAX_OUTPUT_BYTES + 1);
+    expect(serverToClientMessageSchema.safeParse({ type: "output", data: oversized }).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects oversized title payloads", () => {
+    const oversized = "a".repeat(MAX_TITLE_LENGTH + 1);
+    expect(serverToClientMessageSchema.safeParse({ type: "title", title: oversized }).success).toBe(
+      false,
+    );
   });
 });

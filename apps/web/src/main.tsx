@@ -6,7 +6,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { applyTabFavicon } from "./utils/tab-favicon";
+import { TOOLTIP_DELAY_MS } from "@/lib/constants";
+import { applyTabFavicon } from "./utils/apply-tab-favicon";
 import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";
@@ -19,7 +20,7 @@ if (!rootElement) throw new Error("Root element not found");
 
 createRoot(rootElement).render(
   <StrictMode>
-    <TooltipProvider delay={300}>
+    <TooltipProvider delay={TOOLTIP_DELAY_MS}>
       <App />
     </TooltipProvider>
   </StrictMode>,

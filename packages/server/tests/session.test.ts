@@ -65,6 +65,41 @@ describe("Session", () => {
     session.dispose();
   });
 
+  it("kills the underlying PTY child when dispose is called before the shell exits", async () => {
+    const session = new Session({ shell: "/bin/sh" });
+    await collectOutput(session);
+    const childPid = session.pid;
+    session.dispose();
+
+    const isProcessAlive = (pid: number): boolean => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    await waitFor(
+      new Promise<void>((resolve, reject) => {
+        const startedAt = Date.now();
+        const poll = () => {
+          if (!isProcessAlive(childPid)) {
+            resolve();
+            return;
+          }
+          if (Date.now() - startedAt > 2000) {
+            reject(new Error(`pid ${childPid} still alive 2s after dispose`));
+            return;
+          }
+          setTimeout(poll, 50);
+        };
+        poll();
+      }),
+      2500,
+    );
+  });
+
   it("clamps resize to current dimensions", () => {
     const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
     try {

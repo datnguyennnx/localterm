@@ -4,7 +4,10 @@ import { runRestart } from "./commands/restart.js";
 import { runStart } from "./commands/start.js";
 import { runStatus } from "./commands/status.js";
 import { runStop } from "./commands/stop.js";
+import { parsePortOption } from "./utils/parse-port-option.js";
 import { readPackageVersion } from "./utils/read-package-version.js";
+
+const initialPort = parsePortOption(process.env.PORT ?? String(DEFAULT_PORT));
 
 const program = new Command();
 program
@@ -15,13 +18,13 @@ program
 program
   .command("start")
   .description("start the localterm server (daemonizes by default)")
-  .option("-p, --port <port>", "port to bind", process.env.PORT ?? String(DEFAULT_PORT))
+  .option("-p, --port <port>", "port to bind", parsePortOption, initialPort)
   .option("-H, --host <host>", "host to bind", DEFAULT_HOST)
   .option("--no-open", "do not open browser on start")
   .option("-F, --foreground", "stay attached to this terminal (do not daemonize)", false)
-  .action(async (options: { port: string; host: string; open: boolean; foreground: boolean }) => {
+  .action(async (options: { port: number; host: string; open: boolean; foreground: boolean }) => {
     await runStart({
-      port: Number(options.port),
+      port: options.port,
       host: options.host,
       open: options.open,
       foreground: options.foreground,
@@ -45,12 +48,12 @@ program
 program
   .command("restart")
   .description("restart the localterm server")
-  .option("-p, --port <port>", "port to bind", process.env.PORT ?? String(DEFAULT_PORT))
+  .option("-p, --port <port>", "port to bind", parsePortOption, initialPort)
   .option("-H, --host <host>", "host to bind", DEFAULT_HOST)
   .option("--no-open", "do not open browser on start")
-  .action(async (options: { port: string; host: string; open: boolean }) => {
+  .action(async (options: { port: number; host: string; open: boolean }) => {
     await runRestart({
-      port: Number(options.port),
+      port: options.port,
       host: options.host,
       open: options.open,
     });

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { MAX_COLS, MAX_INPUT_BYTES, MAX_ROWS } from "./constants.js";
+import {
+  MAX_COLS,
+  MAX_INPUT_BYTES,
+  MAX_OUTPUT_BYTES,
+  MAX_ROWS,
+  MAX_TITLE_LENGTH,
+} from "./constants.js";
 
 export const healthSchema = z
   .object({
@@ -31,7 +37,7 @@ export const clientToServerMessageSchema = z.discriminatedUnion("type", [
 const outputMessageSchema = z
   .object({
     type: z.literal("output"),
-    data: z.string(),
+    data: z.string().max(MAX_OUTPUT_BYTES),
   })
   .strict();
 
@@ -45,7 +51,7 @@ const exitMessageSchema = z
 const titleMessageSchema = z
   .object({
     type: z.literal("title"),
-    title: z.string(),
+    title: z.string().max(MAX_TITLE_LENGTH),
   })
   .strict();
 

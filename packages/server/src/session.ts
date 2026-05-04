@@ -131,9 +131,9 @@ export class Session extends EventEmitter<SessionEvents> {
   }
 
   dispose(): void {
+    this.kill();
     this.exited = true;
     this.stopTitlePolling();
-    this.kill();
     this.removeAllListeners();
   }
 

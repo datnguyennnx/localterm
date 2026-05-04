@@ -8,19 +8,21 @@ import {
   DAEMON_CHILD_ENV_FLAG,
   DAEMON_PROBE_INTERVAL_MS,
   DAEMON_PROBE_MAX_WAIT_MS,
+  DAEMON_PROCESS_TITLE,
   EXIT_FAILURE,
   EXIT_OK,
-  EXIT_USAGE_ERROR,
   FORCE_EXIT_TIMEOUT_MS,
   getFriendlyUrl,
   STOP_COMMAND,
 } from "../constants.js";
+import { cliError, exitCodeForCliError } from "../errors.js";
 import { clearPid, ensureLogFile, isAlive, readPort, writePid } from "../state.js";
 import { buildDaemonStartArgs } from "../utils/build-daemon-args.js";
 import { pollForDaemonReady } from "../utils/poll-for-daemon-ready.js";
+import { reportCliError } from "../utils/report-cli-error.js";
+import { runStartPreflight } from "../utils/run-start-preflight.js";
 import { sleep } from "../utils/sleep.js";
 import { spawnDaemon } from "../utils/spawn-daemon.js";
-import { reportStartPreflight, runStartPreflight } from "../utils/start-preflight.js";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,10 +56,10 @@ export const runStart = async (options: StartOptions): Promise<void> => {
 };
 
 const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
-  const preflight = runStartPreflight(options.host);
-  if (preflight.kind !== "ok") {
-    reportStartPreflight(preflight);
-    process.exit(preflight.kind === "invalid-host" ? EXIT_USAGE_ERROR : EXIT_OK);
+  const preflightError = runStartPreflight(options.host);
+  if (preflightError !== null) {
+    reportCliError(preflightError);
+    process.exit(exitCodeForCliError(preflightError));
   }
 
   const portBeforeSpawn = readPort();
@@ -69,12 +71,9 @@ const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
   });
 
   if (childPid === undefined) {
-    console.log(
-      kleur.red(
-        `✗ failed to spawn ${process.execPath} — check that node is on PATH (logs: ${logPath}).`,
-      ),
-    );
-    process.exit(EXIT_FAILURE);
+    const error = cliError.daemonSpawnFailed(process.execPath, logPath);
+    reportCliError(error);
+    process.exit(exitCodeForCliError(error));
   }
 
   const result = await pollForDaemonReady({
@@ -82,35 +81,29 @@ const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
     initialPort: portBeforeSpawn,
     intervalMs: DAEMON_PROBE_INTERVAL_MS,
     maxWaitMs: DAEMON_PROBE_MAX_WAIT_MS,
+    logPath,
     isAlive,
     readPort,
     sleep,
   });
 
-  if (result.outcome === "died") {
-    console.log(kleur.red(`✗ daemon died during startup. tail logs: ${kleur.dim(logPath)}`));
-    process.exit(EXIT_FAILURE);
-  }
-  if (result.outcome === "timeout") {
-    if (isAlive(childPid)) {
-      const finalPort = readPort();
-      if (finalPort !== null && finalPort !== portBeforeSpawn) {
-        printDaemonStartedBanner(finalPort);
-        if (options.open) await openInBrowser(getFriendlyUrl(finalPort));
-        return;
-      }
-    }
-    console.log(
-      kleur.yellow(
-        `daemon spawned (pid ${childPid}) but didn't bind a port within ${DAEMON_PROBE_MAX_WAIT_MS}ms. tail logs: ${kleur.dim(logPath)}`,
-      ),
-    );
-    process.exit(EXIT_FAILURE);
+  if (result.ok) {
+    printDaemonStartedBanner(result.port);
+    if (options.open) await openInBrowser(getFriendlyUrl(result.port));
+    return;
   }
 
-  const namedUrl = getFriendlyUrl(result.port ?? options.port);
-  printDaemonStartedBanner(result.port ?? options.port);
-  if (options.open) await openInBrowser(namedUrl);
+  if (result.error.kind === "daemon-ready-timeout" && isAlive(childPid)) {
+    const finalPort = readPort();
+    if (finalPort !== null && finalPort !== portBeforeSpawn) {
+      printDaemonStartedBanner(finalPort);
+      if (options.open) await openInBrowser(getFriendlyUrl(finalPort));
+      return;
+    }
+  }
+
+  reportCliError(result.error);
+  process.exit(exitCodeForCliError(result.error));
 };
 
 const printDaemonStartedBanner = (port: number): void => {
@@ -127,11 +120,13 @@ const openInBrowser = async (url: string): Promise<void> => {
 };
 
 const runStartInForeground = async (options: StartOptions): Promise<void> => {
-  const preflight = runStartPreflight(options.host);
-  if (preflight.kind !== "ok") {
-    reportStartPreflight(preflight);
-    process.exit(preflight.kind === "invalid-host" ? EXIT_USAGE_ERROR : EXIT_OK);
+  const preflightError = runStartPreflight(options.host);
+  if (preflightError !== null) {
+    reportCliError(preflightError);
+    process.exit(exitCodeForCliError(preflightError));
   }
+
+  process.title = DAEMON_PROCESS_TITLE;
 
   const staticRoot = resolveStaticRoot();
   if (!staticRoot) {
@@ -149,10 +144,12 @@ const runStartInForeground = async (options: StartOptions): Promise<void> => {
       host: options.host,
       staticRoot,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.log(kleur.red(`failed to start: ${message}`));
-    process.exit(EXIT_FAILURE);
+  } catch (caughtError) {
+    const startError = cliError.serverStartFailed(
+      caughtError instanceof Error ? caughtError : new Error(String(caughtError)),
+    );
+    reportCliError(startError);
+    process.exit(exitCodeForCliError(startError));
   }
 
   writePid(process.pid, server.port);

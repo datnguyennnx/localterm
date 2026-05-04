@@ -40,8 +40,11 @@ export const PTY_ENV_DENYLIST = [
 ];
 
 export const MAX_INPUT_BYTES = 64 * 1024;
+export const MAX_OUTPUT_BYTES = 1 * 1024 * 1024;
+export const MAX_TITLE_LENGTH = 4 * 1024;
 export const MAX_COLS = 1000;
 export const MAX_ROWS = 1000;
+export const MAX_CONCURRENT_SESSIONS = 64;
 export const WS_BACKPRESSURE_THRESHOLD_BYTES = 8 * 1024 * 1024;
 
 export const LOOPBACK_HOSTS = new Set([
@@ -57,3 +60,4 @@ export const HTTP_STATUS_NOT_FOUND = 404;
 export const WS_READY_STATE_OPEN = 1;
 export const WS_CLOSE_POLICY_VIOLATION = 1008;
 export const WS_CLOSE_BACKPRESSURE = 4429;
+export const WS_CLOSE_CAPACITY_REACHED = 4503;

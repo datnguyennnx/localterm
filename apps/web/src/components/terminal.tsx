@@ -35,9 +35,10 @@ import {
   DEAD_SESSION_TITLE_PREFIX,
   DEFAULT_DOCUMENT_TITLE,
   DISCONNECT_MODAL_THRESHOLD_FAILURES,
+  FALLBACK_MONO_FONT_FAMILY,
+  FALLBACK_TERMINAL_BACKGROUND_HEX,
   FAVICON_ACTIVE_DEBOUNCE_MS,
   FAVICON_IDLE_DEBOUNCE_MS,
-  FALLBACK_TERMINAL_BACKGROUND_HEX,
   RECONNECT_DELAY_MS,
   RESIZE_DEBOUNCE_MS,
   RESTART_COMMAND,
@@ -48,15 +49,17 @@ import {
   TERMINAL_FONT_SIZE_PX,
   TERMINAL_LINE_HEIGHT,
   TERMINAL_SCROLLBACK_LINES,
+  TOOLTIP_SIDE_OFFSET_PX,
 } from "@/lib/constants";
 import { serverToClientMessageSchema } from "@/lib/schemas";
 import { findTerminalThemeById } from "@/lib/terminal-themes";
-import type { ClientToServerMessage } from "@/lib/types";
+import { chunkInputByCodeUnits } from "@/utils/chunk-input-by-code-units";
 import { detectIsMacPlatform } from "@/utils/detect-is-mac-platform";
 import { isFindShortcut } from "@/utils/is-find-shortcut";
 import { loadStoredTerminalThemeId } from "@/utils/load-stored-terminal-theme-id";
+import { setTabFaviconState } from "@/utils/set-tab-favicon-state";
 import { storeTerminalThemeId } from "@/utils/store-terminal-theme-id";
-import { setTabFaviconState } from "@/utils/tab-favicon";
+import { MAX_INPUT_BYTES, type ClientToServerMessage } from "localterm-server/protocol";
 import "@xterm/xterm/css/xterm.css";
 
 const formatExitMarker = (code: number | null): string => {
@@ -75,8 +78,6 @@ const SEARCH_DECORATION_OPTIONS = {
   matchOverviewRuler: SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
   activeMatchColorOverviewRuler: SEARCH_ACTIVE_MATCH_BORDER_HEX,
 };
-
-const FALLBACK_MONO_FONT_FAMILY = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 const resolveMonoFontFamily = (): string => {
   if (typeof window === "undefined") return FALLBACK_MONO_FONT_FAMILY;
@@ -102,6 +103,10 @@ interface SearchResultState {
   resultCount: number;
 }
 
+interface ExitInfo {
+  code: number | null;
+}
+
 interface TerminalProps {
   onModalOpenChange?: (open: boolean) => void;
 }
@@ -116,7 +121,8 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const retryFeedbackTimerRef = useRef<number | null>(null);
   const copyFeedbackTimerRef = useRef<number | null>(null);
   const initialThemeIdRef = useRef<string>(loadStoredTerminalThemeId());
-  const [exitInfo, setExitInfo] = useState<{ code: number | null } | null>(null);
+  const openSearchOverlayRef = useRef<(() => void) | null>(null);
+  const [exitInfo, setExitInfo] = useState<ExitInfo | null>(null);
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   const [hasCopiedRestartCommand, setHasCopiedRestartCommand] = useState(false);
   const [isRetryingConnection, setIsRetryingConnection] = useState(false);
@@ -187,7 +193,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       }
     };
 
-    void document.fonts.load(`${TERMINAL_FONT_SIZE_PX}px "Geist Mono"`).catch(() => {});
+    document.fonts.load(`${TERMINAL_FONT_SIZE_PX}px "Geist Mono"`).catch(() => {});
 
     const terminal = new XtermTerminal({
       allowProposedApi: true,
@@ -202,42 +208,35 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       scrollOnUserInput: true,
     });
     terminalRef.current = terminal;
-    const fit = new FitAddon();
-    terminal.loadAddon(fit);
+    const fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
     terminal.loadAddon(new WebLinksAddon());
     terminal.loadAddon(new ClipboardAddon());
     terminal.loadAddon(new ImageAddon());
     terminal.loadAddon(new ProgressAddon());
-    const unicode11 = new Unicode11Addon();
-    terminal.loadAddon(unicode11);
+    const unicode11Addon = new Unicode11Addon();
+    terminal.loadAddon(unicode11Addon);
     terminal.unicode.activeVersion = "11";
-    const search = new SearchAddon();
-    terminal.loadAddon(search);
-    searchAddonRef.current = search;
-    const searchResultsDisposable = search.onDidChangeResults(({ resultIndex, resultCount }) => {
-      setSearchResults({ resultIndex, resultCount });
-    });
+    const searchAddon = new SearchAddon();
+    terminal.loadAddon(searchAddon);
+    searchAddonRef.current = searchAddon;
+    const searchResultsDisposable = searchAddon.onDidChangeResults(setSearchResults);
 
     terminal.open(container);
     try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
-      terminal.loadAddon(webgl);
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => webglAddon.dispose());
+      terminal.loadAddon(webglAddon);
     } catch {
       /* webgl unavailable; xterm falls back to canvas */
     }
-
-    const openSearch = () => {
-      setIsSearchOpen(true);
-      setSearchOpenAttempt((previous) => previous + 1);
-    };
 
     terminal.attachCustomKeyEventHandler((event) => {
       if (event.key === "Tab" && (event.metaKey || event.ctrlKey)) return false;
       if (isFindShortcut(event, isMac)) {
         if (event.type === "keydown") {
           event.preventDefault();
-          openSearch();
+          openSearchOverlayRef.current?.();
         }
         return false;
       }
@@ -245,10 +244,11 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     });
 
     const applyIncomingTitle = (rawTitle: string) => {
+      if (exited) return;
       const trimmed = rawTitle.trim();
       if (!trimmed) return;
       lastTitle = trimmed;
-      if (!exited) document.title = titleForLiveSession(trimmed);
+      document.title = titleForLiveSession(trimmed);
     };
 
     const titleDisposable = terminal.onTitleChange(applyIncomingTitle);
@@ -263,7 +263,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
     const fitToContainer = () => {
       try {
-        fit.fit();
+        fitAddon.fit();
         sendResize(terminal.cols, terminal.rows);
       } catch {
         /* container not yet measured */
@@ -278,7 +278,11 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       }, RESIZE_DEBOUNCE_MS);
     };
 
-    terminal.onData((data) => send({ type: "input", data }));
+    terminal.onData((data) => {
+      for (const chunk of chunkInputByCodeUnits(data, MAX_INPUT_BYTES)) {
+        send({ type: "input", data: chunk });
+      }
+    });
     terminal.onResize(({ cols, rows }) => sendResize(cols, rows));
 
     const observer = new ResizeObserver(scheduleFit);
@@ -331,7 +335,8 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       });
 
       nextSocket.addEventListener("close", () => {
-        if (socket === nextSocket) socket = null;
+        if (socket !== nextSocket) return;
+        socket = null;
         if (disposed) return;
         if (exited) return;
         if (wasEverConnected) {
@@ -436,6 +441,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     setIsSearchOpen(true);
     setSearchOpenAttempt((previous) => previous + 1);
   }, []);
+  openSearchOverlayRef.current = openSearchOverlay;
 
   const handleSearchInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -531,14 +537,14 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     <div className="h-dvh w-dvw" style={{ background: pageBackground }}>
       <div className="relative h-full w-full">
         <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" />
-        {isShellDead ? (
+        {exitInfo !== null ? (
           <Badge
             variant="destructive"
             role="status"
             aria-live="polite"
             className="absolute top-2 left-3 z-10"
           >
-            {exitInfo?.code === null ? "exited" : `exited · code ${exitInfo?.code}`}
+            {exitInfo.code === null ? "exited" : `exited · code ${exitInfo.code}`}
           </Badge>
         ) : null}
         {isSearchOpen ? null : (
@@ -562,7 +568,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
               >
                 <Search />
               </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={8}>
+              <TooltipContent side="bottom" sideOffset={TOOLTIP_SIDE_OFFSET_PX}>
                 Find {isMac ? "(\u2318F)" : "(Ctrl+F)"}
               </TooltipContent>
             </Tooltip>
@@ -580,7 +586,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
               >
                 <Plus />
               </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={8}>
+              <TooltipContent side="bottom" sideOffset={TOOLTIP_SIDE_OFFSET_PX}>
                 New shell (new tab)
               </TooltipContent>
             </Tooltip>
@@ -633,14 +639,14 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
       <AlertDialog open={isModalOpen}>
         <AlertDialogContent>
-          {isShellDead ? (
+          {exitInfo !== null ? (
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>Shell ended</AlertDialogTitle>
                 <AlertDialogDescription>
-                  {exitInfo?.code === null || exitInfo?.code === 0
+                  {exitInfo.code === null || exitInfo.code === 0
                     ? "Open a new shell to keep going, or close this tab."
-                    : `Exit code ${exitInfo?.code}. Open a new shell to keep going.`}
+                    : `Exit code ${exitInfo.code}. Open a new shell to keep going.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

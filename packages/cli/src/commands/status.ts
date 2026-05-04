@@ -1,7 +1,9 @@
 import kleur from "kleur";
 import { healthSchema } from "localterm-server";
 import { getFriendlyUrl } from "../constants.js";
+import { cliError } from "../errors.js";
 import { isAlive, readPid, readPort } from "../state.js";
+import { reportCliError } from "../utils/report-cli-error.js";
 
 export const runStatus = async (): Promise<void> => {
   const pid = readPid();
@@ -27,7 +29,12 @@ export const runStatus = async (): Promise<void> => {
     console.log(`  raw:      ${kleur.dim(`http://127.0.0.1:${port}`)}`);
     console.log(`  sessions: ${health.sessions}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.log(kleur.yellow(`pid ${pid} is alive but health check failed: ${message}`));
+    reportCliError(
+      cliError.healthCheckFailed(
+        pid,
+        port,
+        error instanceof Error ? error : new Error(String(error)),
+      ),
+    );
   }
 };

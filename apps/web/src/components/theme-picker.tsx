@@ -3,6 +3,7 @@ import { Check, Palette } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TOOLTIP_SIDE_OFFSET_PX } from "@/lib/constants";
 import { TERMINAL_THEMES, findTerminalThemeById } from "@/lib/terminal-themes";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,7 @@ export const ThemePicker = ({ value, onValueChange }: ThemePickerProps) => {
           <Palette />
         </TooltipTrigger>
         {isOpen ? null : (
-          <TooltipContent side="bottom" sideOffset={8}>
+          <TooltipContent side="bottom" sideOffset={TOOLTIP_SIDE_OFFSET_PX}>
             Theme · {activeTheme.name}
           </TooltipContent>
         )}
@@ -43,7 +44,7 @@ export const ThemePicker = ({ value, onValueChange }: ThemePickerProps) => {
       <PopoverContent
         side="bottom"
         align="end"
-        sideOffset={8}
+        sideOffset={TOOLTIP_SIDE_OFFSET_PX}
         className="w-44 origin-top-right gap-0 overflow-hidden border border-border/60 bg-background/70 p-1 text-muted-foreground shadow-xs ring-0 backdrop-blur-md duration-150 ease-out data-closed:duration-100 data-closed:ease-in data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:blur-out-[5px] data-closed:slide-out-to-top-2 data-open:fade-in-0 data-open:zoom-in-95 data-open:blur-in-[5px] data-open:slide-in-from-top-2"
       >
         <div

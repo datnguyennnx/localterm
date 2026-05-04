@@ -7,11 +7,14 @@ import {
   DEFAULT_HOST,
   DEFAULT_PORT,
   HTTP_STATUS_NOT_FOUND,
+  MAX_CONCURRENT_SESSIONS,
   WS_BACKPRESSURE_THRESHOLD_BYTES,
   WS_CLOSE_BACKPRESSURE,
+  WS_CLOSE_CAPACITY_REACHED,
   WS_CLOSE_POLICY_VIOLATION,
   WS_READY_STATE_OPEN,
 } from "./constants.js";
+import { ServerErrorException, serverError } from "./errors.js";
 import { clientToServerMessageSchema } from "./schemas.js";
 import { enforceLoopback, isLoopbackHost, loopbackMiddleware } from "./security.js";
 import { Session } from "./session.js";
@@ -65,7 +68,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
   const port = options.port ?? DEFAULT_PORT;
   const host = options.host ?? DEFAULT_HOST;
   if (!isLoopbackHost(host)) {
-    throw new Error(`refusing to bind non-loopback host '${host}': pass 127.0.0.1 or localhost`);
+    throw new ServerErrorException(serverError.nonLoopbackHost(host));
   }
 
   const staticRoot =
@@ -93,6 +96,10 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
 
       return {
         onOpen(_event, ws) {
+          if (registry.size() >= MAX_CONCURRENT_SESSIONS) {
+            ws.close(WS_CLOSE_CAPACITY_REACHED, "session capacity reached");
+            return;
+          }
           session = new Session({});
           registry.register(session);
 
@@ -158,7 +165,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
   let httpServer: ServerType | null = null;
   await new Promise<void>((resolve, reject) => {
     const handleError = (error: Error) => {
-      reject(error);
+      reject(new ServerErrorException(serverError.listenFailed(host, port, error)));
     };
     const node = serve(
       {
@@ -174,7 +181,15 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
     node.once("error", handleError);
     httpServer = node;
   });
-  if (!httpServer) throw new Error("server_failed_to_start");
+  if (!httpServer) {
+    throw new ServerErrorException(
+      serverError.listenFailed(
+        host,
+        port,
+        new Error("hono serve() resolved without binding an http server"),
+      ),
+    );
+  }
   injectWebSocket(httpServer);
 
   const stop = async () => {
@@ -199,3 +214,10 @@ export type * from "./types.js";
 export { DEFAULT_HOST, DEFAULT_PORT, WS_CLOSE_BACKPRESSURE } from "./constants.js";
 export { isLoopbackHost } from "./security.js";
 export { healthSchema } from "./schemas.js";
+export {
+  ServerErrorException,
+  formatServerError,
+  isServerErrorException,
+  serverError,
+} from "./errors.js";
+export type { ServerError, ServerErrorCode, ServerErrorKind } from "./errors.js";

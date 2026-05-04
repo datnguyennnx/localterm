@@ -1,7 +1,10 @@
 import kleur from "kleur";
 import { STOP_MAX_WAIT_MS, STOP_POLL_INTERVAL_MS } from "../constants.js";
+import { cliError } from "../errors.js";
 import { clearPid, isAlive, readPid } from "../state.js";
+import { reportCliError } from "../utils/report-cli-error.js";
 import { sleep } from "../utils/sleep.js";
+import { verifyPidIsLocalterm } from "../utils/verify-pid-is-localterm.js";
 
 export const runStop = async (): Promise<void> => {
   const pid = readPid();
@@ -14,12 +17,19 @@ export const runStop = async (): Promise<void> => {
     console.log(kleur.dim("stale pid file removed."));
     return;
   }
+  const isOurDaemon = await verifyPidIsLocalterm(pid);
+  if (!isOurDaemon) {
+    reportCliError(cliError.pidNotOurs(pid));
+    clearPid();
+    return;
+  }
 
   try {
     process.kill(pid, "SIGTERM");
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.log(kleur.red(`failed to signal pid ${pid}: ${message}`));
+    reportCliError(
+      cliError.signalFailed(pid, error instanceof Error ? error : new Error(String(error))),
+    );
     return;
   }
 
