@@ -1,0 +1,9 @@
+{
+  "name": "@localterm/website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/index.html"
+  }
+}
