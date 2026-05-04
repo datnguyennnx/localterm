@@ -55,7 +55,8 @@ This is a pnpm monorepo built on [vite-plus](https://github.com/voidzero-dev/vit
 
 ```
 apps/
-  web/          # vite + react + tailwind v4 + xterm.js
+  terminal/     # vite + react + tailwind v4 + xterm.js (the in-browser terminal UI)
+  website/      # static redirect to github.com/millionco/localterm
 packages/
   server/       # hono + ws + node-pty (one PTY per WebSocket, killed on close)
   cli/          # commander entry: start/stop/status/restart

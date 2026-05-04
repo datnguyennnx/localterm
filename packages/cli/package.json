@@ -30,7 +30,7 @@
   "files": [
     "bin",
     "dist",
-    "web",
+    "terminal",
     "README.md",
     "LICENSE"
   ],

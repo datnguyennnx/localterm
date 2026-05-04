@@ -43,7 +43,7 @@ interface BroadcastSocket {
 }
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const defaultStaticRoot = path.resolve(moduleDir, "../../web/dist");
+const defaultStaticRoot = path.resolve(moduleDir, "../../terminal/dist");
 
 const getRawBufferedAmount = (raw: unknown): number => {
   if (!raw || typeof raw !== "object") return 0;

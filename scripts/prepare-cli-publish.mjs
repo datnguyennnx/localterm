@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, "..");
 const cliRoot = path.join(repoRoot, "packages/cli");
-const webDistRoot = path.join(repoRoot, "apps/web/dist");
-const cliWebDestination = path.join(cliRoot, "web");
+const terminalDistRoot = path.join(repoRoot, "apps/terminal/dist");
+const cliTerminalDestination = path.join(cliRoot, "terminal");
 const repoReadme = path.join(repoRoot, "README.md");
 const cliReadmeDestination = path.join(cliRoot, "README.md");
 const repoLicense = path.join(repoRoot, "LICENSE");
@@ -18,16 +18,16 @@ const die = (message) => {
   process.exit(1);
 };
 
-if (!existsSync(webDistRoot)) {
+if (!existsSync(terminalDistRoot)) {
   die(
-    `apps/web/dist not found. run 'pnpm build' before publishing so the bundled web UI ships with the CLI tarball.`,
+    `apps/terminal/dist not found. run 'pnpm build' before publishing so the bundled terminal UI ships with the CLI tarball.`,
   );
 }
 
-rmSync(cliWebDestination, { recursive: true, force: true });
-cpSync(webDistRoot, cliWebDestination, { recursive: true });
+rmSync(cliTerminalDestination, { recursive: true, force: true });
+cpSync(terminalDistRoot, cliTerminalDestination, { recursive: true });
 console.log(
-  `prepare-cli-publish: copied ${path.relative(repoRoot, webDistRoot)} -> ${path.relative(repoRoot, cliWebDestination)}`,
+  `prepare-cli-publish: copied ${path.relative(repoRoot, terminalDistRoot)} -> ${path.relative(repoRoot, cliTerminalDestination)}`,
 );
 
 cpSync(repoReadme, cliReadmeDestination);

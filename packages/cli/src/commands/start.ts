@@ -28,9 +28,9 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 const resolveStaticRoot = (): string | null => {
   const candidates = [
-    path.resolve(moduleDir, "../../../../apps/web/dist"),
-    path.resolve(moduleDir, "../../web"),
-    path.resolve(moduleDir, "../web"),
+    path.resolve(moduleDir, "../../../../apps/terminal/dist"),
+    path.resolve(moduleDir, "../../terminal"),
+    path.resolve(moduleDir, "../terminal"),
   ];
   for (const candidate of candidates) {
     if (existsSync(path.join(candidate, "index.html"))) return candidate;
@@ -132,7 +132,7 @@ const runStartInForeground = async (options: StartOptions): Promise<void> => {
   if (!staticRoot) {
     console.log(
       kleur.yellow(
-        "warning: web bundle not found. run 'pnpm build' first or only the API will be served.",
+        "warning: terminal bundle not found. run 'pnpm build' first or only the API will be served.",
       ),
     );
   }
