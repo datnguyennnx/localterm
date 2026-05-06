@@ -77,6 +77,7 @@ import { loadStoredTerminalScrollback } from "@/utils/load-stored-terminal-scrol
 import { loadStoredTerminalScrollOnUserInput } from "@/utils/load-stored-terminal-scroll-on-user-input";
 import { loadStoredTerminalThemeId } from "@/utils/load-stored-terminal-theme-id";
 import { setTabFaviconState } from "@/utils/set-tab-favicon-state";
+import { shouldSuppressAltBufferWheel } from "@/utils/should-suppress-alt-buffer-wheel";
 import { storeTerminalCursorBlink } from "@/utils/store-terminal-cursor-blink";
 import { storeTerminalCursorStyle } from "@/utils/store-terminal-cursor-style";
 import { storeTerminalFontId } from "@/utils/store-terminal-font-id";
@@ -336,6 +337,14 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     const send = (message: ClientToServerMessage) => {
       if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
     };
+
+    terminal.attachCustomWheelEventHandler((event) => {
+      if (shouldSuppressAltBufferWheel(event, terminal)) {
+        event.preventDefault();
+        return false;
+      }
+      return true;
+    });
 
     terminal.attachCustomKeyEventHandler((event) => {
       if (event.key === "Tab" && (event.metaKey || event.ctrlKey)) return false;
