@@ -30,7 +30,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SettingsMenu } from "@/components/settings-menu";
-import { TerminalScrollbar } from "@/components/terminal-scrollbar";
 import {
   COPY_FEEDBACK_MS,
   DEAD_SESSION_TITLE_PREFIX,
@@ -155,7 +154,6 @@ interface ResizeScrollRestoreState {
 }
 
 export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
-  const stageRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<XtermTerminal | null>(null);
   const manualReconnectRef = useRef<(() => void) | null>(null);
@@ -218,7 +216,6 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const [sessionInfo, setSessionInfo] = useState<TerminalSessionInfo | null>(null);
   const [liveCwd, setLiveCwd] = useState<string | null>(null);
   const liveCwdRef = useRef<string | null>(null);
-  const [terminalInstance, setTerminalInstance] = useState<XtermTerminal | null>(null);
   const isMac = useMemo(detectIsMacPlatform, []);
 
   useEffect(() => {
@@ -303,7 +300,6 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       scrollOnUserInput: initialScrollOnUserInputRef.current,
     });
     terminalRef.current = terminal;
-    setTerminalInstance(terminal);
     const fitAddon = new FitAddon();
     fitAddonRef.current = fitAddon;
     terminal.loadAddon(fitAddon);
@@ -653,7 +649,6 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       refocusTerminalRef.current = null;
       searchAddonRef.current = null;
       terminalRef.current = null;
-      setTerminalInstance(null);
       fitAddonRef.current = null;
       titleDisposable.dispose();
       searchResultsDisposable.dispose();
@@ -943,9 +938,8 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
   return (
     <div className="h-dvh w-dvw" style={{ background: pageBackground }}>
-      <div ref={stageRef} className="relative h-full w-full">
+      <div className="relative h-full w-full">
         <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" />
-        <TerminalScrollbar terminal={terminalInstance} hostRef={stageRef} />
         {exitInfo !== null ? (
           <Badge
             variant="destructive"
