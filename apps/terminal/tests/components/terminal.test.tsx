@@ -4,6 +4,7 @@ import { Terminal } from "../../src/components/terminal";
 import {
   DEFAULT_TERMINAL_FONT_SIZE_PX,
   DEFAULT_TERMINAL_LINE_HEIGHT,
+  RESIZE_SCROLL_RESTORE_WINDOW_MS,
   TERMINAL_CURSOR_BLINK_STORAGE_KEY,
   TERMINAL_CURSOR_STYLE_STORAGE_KEY,
   TERMINAL_FONT_SIZE_MIN_PX,
@@ -40,6 +41,7 @@ interface FakeXtermHandle {
   setBufferState: (state: { baseY: number; viewportY: number }) => void;
   scrollLines: ReturnType<typeof vi.fn>;
   scrollToBottom: ReturnType<typeof vi.fn>;
+  write: ReturnType<typeof vi.fn>;
   invokeCsiHandler: (prefix: string | undefined, final: string, params: number[]) => boolean;
 }
 
@@ -117,6 +119,7 @@ vi.mock("@xterm/xterm", () => {
     buffer = { active: { baseY: 0, viewportY: 0 } };
     scrollLines = vi.fn();
     scrollToBottom = vi.fn();
+    write = vi.fn((_data: string, callback?: () => void) => callback?.());
     private titleListeners = new Set<(title: string) => void>();
     private csiHandlers: FakeCsiHandlerEntry[] = [];
     private handle: FakeXtermHandle;
@@ -151,6 +154,7 @@ vi.mock("@xterm/xterm", () => {
         },
         scrollLines: this.scrollLines,
         scrollToBottom: this.scrollToBottom,
+        write: this.write,
         invokeCsiHandler: (prefix, final, params) => {
           for (let entryIndex = this.csiHandlers.length - 1; entryIndex >= 0; entryIndex -= 1) {
             const entry = this.csiHandlers[entryIndex];
@@ -182,7 +186,6 @@ vi.mock("@xterm/xterm", () => {
     attachCustomWheelEventHandler = (handler: (event: WheelEvent) => boolean) => {
       this.handle.customWheelEventHandler = handler;
     };
-    write = () => {};
     reset = () => {};
     focus = () => {};
     dispose = () => {};
@@ -202,9 +205,9 @@ vi.mock("@xterm/addon-clipboard", () => {
   return { ClipboardAddon: FakeClipboardAddon };
 });
 
-vi.mock("@xterm/addon-unicode11", () => {
-  class FakeUnicode11Addon {}
-  return { Unicode11Addon: FakeUnicode11Addon };
+vi.mock("@xterm/addon-unicode-graphemes", () => {
+  class FakeUnicodeGraphemesAddon {}
+  return { UnicodeGraphemesAddon: FakeUnicodeGraphemesAddon };
 });
 
 vi.mock("@xterm/addon-web-links", () => {
@@ -965,6 +968,70 @@ describe("Terminal scroll preservation through hot-swaps", () => {
     });
 
     expect(handle.scrollToBottom).toHaveBeenCalled();
+  });
+
+  it("restores bottom scroll after output arrives during a resize replay", () => {
+    render(<Terminal />);
+    const handle = fakeXterms[0];
+    if (!handle) throw new Error("xterm not constructed");
+    handle.scrollToBottom.mockClear();
+
+    act(() => {
+      handle.setBufferState({ baseY: 80, viewportY: 0 });
+      fakeWebSockets[0]?.fireMessage({ type: "output", data: "replayed transcript" });
+    });
+
+    expect(handle.write).toHaveBeenCalledWith("replayed transcript", expect.any(Function));
+    expect(handle.scrollToBottom).toHaveBeenCalled();
+  });
+
+  it("keeps bottom-pinned sessions at the bottom after output-driven clears", () => {
+    render(<Terminal />);
+    const handle = fakeXterms[0];
+    if (!handle) throw new Error("xterm not constructed");
+
+    act(() => {
+      vi.advanceTimersByTime(RESIZE_SCROLL_RESTORE_WINDOW_MS + 1);
+    });
+    handle.setBufferState({ baseY: 80, viewportY: 80 });
+    handle.scrollToBottom.mockClear();
+
+    act(() => {
+      fakeWebSockets[0]?.fireMessage({ type: "output", data: "\x1b[2J\x1b[H\x1b[3Jredraw" });
+    });
+
+    const writtenData = handle.write.mock.calls.at(-1)?.[0];
+    expect(writtenData).toBe("\x1b[2J\x1b[H\x1b[3Jredraw");
+    expect(handle.scrollToBottom).toHaveBeenCalled();
+  });
+
+  it("blocks scrollback purge CSI handlers without blocking normal screen clears", () => {
+    render(<Terminal />);
+    const handle = fakeXterms[0];
+    if (!handle) throw new Error("xterm not constructed");
+
+    expect(handle.invokeCsiHandler(undefined, "J", [3])).toBe(true);
+    expect(handle.invokeCsiHandler("?", "J", [3])).toBe(true);
+    expect(handle.invokeCsiHandler(undefined, "J", [2])).toBe(false);
+    expect(handle.invokeCsiHandler("?", "J", [2])).toBe(false);
+  });
+
+  it("does not force bottom scroll after output when the user is scrolled up", () => {
+    render(<Terminal />);
+    const handle = fakeXterms[0];
+    if (!handle) throw new Error("xterm not constructed");
+
+    act(() => {
+      vi.advanceTimersByTime(RESIZE_SCROLL_RESTORE_WINDOW_MS + 1);
+    });
+    handle.setBufferState({ baseY: 100, viewportY: 70 });
+    handle.scrollToBottom.mockClear();
+
+    act(() => {
+      fakeWebSockets[0]?.fireMessage({ type: "output", data: "\x1b[2J\x1b[H\x1b[3Jredraw" });
+    });
+
+    expect(handle.scrollToBottom).not.toHaveBeenCalled();
   });
 });
 

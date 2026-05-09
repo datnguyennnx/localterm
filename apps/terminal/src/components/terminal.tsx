@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { ImageAddon } from "@xterm/addon-image";
 import { ProgressAddon } from "@xterm/addon-progress";
 import { SearchAddon } from "@xterm/addon-search";
-import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as XtermTerminal } from "@xterm/xterm";
@@ -47,7 +47,9 @@ import {
   KITTY_KEYBOARD_SET_MODE_OR,
   KITTY_KEYBOARD_SET_MODE_REPLACE,
   RECONNECT_DELAY_MS,
+  RECONNECT_POLL_INTERVAL_MS,
   RESIZE_DEBOUNCE_MS,
+  RESIZE_SCROLL_RESTORE_WINDOW_MS,
   RESTART_COMMAND,
   RETRY_BUTTON_FEEDBACK_MS,
   SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
@@ -62,11 +64,17 @@ import type { TerminalSessionInfo } from "@/lib/terminal-session-info";
 import { findTerminalThemeById } from "@/lib/terminal-themes";
 import { awaitFontReady } from "@/utils/await-font-ready";
 import { buildKittyKeySequence } from "@/utils/build-kitty-key-sequence";
+import {
+  captureTerminalScrollAnchor,
+  type TerminalScrollAnchor,
+} from "@/utils/capture-terminal-scroll-anchor";
 import { extractKeyboardModifiers } from "@/utils/extract-keyboard-modifiers";
 import { fitTerminalPreservingScroll } from "@/utils/fit-terminal-preserving-scroll";
 import { formatConnectionLostMarker } from "@/utils/format-connection-lost-marker";
 import { formatShellExitMarker } from "@/utils/format-shell-exit-marker";
 import { chunkInputByCodeUnits } from "@/utils/chunk-input-by-code-units";
+import { restoreTerminalScrollAnchor } from "@/utils/restore-terminal-scroll-anchor";
+import { shouldBlockTerminalScrollbackPurge } from "@/utils/should-block-terminal-scrollback-purge";
 import { clampTerminalFontSize } from "@/utils/clamp-terminal-font-size";
 import { clampTerminalLineHeight } from "@/utils/clamp-terminal-line-height";
 import { detectIsMacPlatform } from "@/utils/detect-is-mac-platform";
@@ -106,14 +114,20 @@ const SEARCH_DECORATION_OPTIONS = {
   activeMatchColorOverviewRuler: SEARCH_ACTIVE_MATCH_BORDER_HEX,
 };
 
-const buildWebSocketUrl = (): string => {
+const CWD_QUERY_PARAM = "cwd";
+
+const buildWebSocketUrl = (cwdOverride?: string | null): string => {
   const url = new URL("/ws", window.location.href);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  const cwd = cwdOverride ?? new URLSearchParams(window.location.search).get(CWD_QUERY_PARAM);
+  if (cwd) url.searchParams.set(CWD_QUERY_PARAM, cwd);
   return url.toString();
 };
 
-const openNewShellInNewTab = () => {
-  window.open(window.location.origin, "_blank", "noopener,noreferrer");
+const buildNewTabUrl = (cwd: string | null): string => {
+  const url = new URL(window.location.origin);
+  if (cwd) url.searchParams.set(CWD_QUERY_PARAM, cwd);
+  return url.toString();
 };
 
 interface SearchResultState {
@@ -134,6 +148,12 @@ interface TerminalProps {
   onModalOpenChange?: (open: boolean) => void;
 }
 
+interface ResizeScrollRestoreState {
+  anchor: TerminalScrollAnchor;
+  expiresAtMs: number;
+  timer: number;
+}
+
 export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +164,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const retryFeedbackTimerRef = useRef<number | null>(null);
   const copyFeedbackTimerRef = useRef<number | null>(null);
+  const resizeScrollRestoreRef = useRef<ResizeScrollRestoreState | null>(null);
   const initialThemeIdRef = useRef<string>(loadStoredTerminalThemeId());
   const initialFontIdRef = useRef<string>(loadStoredTerminalFontId());
   const initialLocalFontFamilyRef = useRef<string | null>(loadStoredLocalFontFamily());
@@ -195,6 +216,8 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     initialScrollOnUserInputRef.current,
   );
   const [sessionInfo, setSessionInfo] = useState<TerminalSessionInfo | null>(null);
+  const [liveCwd, setLiveCwd] = useState<string | null>(null);
+  const liveCwdRef = useRef<string | null>(null);
   const [terminalInstance, setTerminalInstance] = useState<XtermTerminal | null>(null);
   const isMac = useMemo(detectIsMacPlatform, []);
 
@@ -288,9 +311,9 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     terminal.loadAddon(new ClipboardAddon());
     terminal.loadAddon(new ImageAddon());
     terminal.loadAddon(new ProgressAddon());
-    const unicode11Addon = new Unicode11Addon();
-    terminal.loadAddon(unicode11Addon);
-    terminal.unicode.activeVersion = "11";
+    const unicodeGraphemesAddon = new UnicodeGraphemesAddon();
+    terminal.loadAddon(unicodeGraphemesAddon);
+    terminal.unicode.activeVersion = "15";
     const searchAddon = new SearchAddon();
     terminal.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
@@ -348,9 +371,65 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
         return true;
       },
     );
+    // Inline TUIs should be allowed to clear and repaint the visible screen, but
+    // not to delete the browser-owned scrollback. xterm implements ED3
+    // (`CSI 3 J`, plus selective `CSI ? 3 J`) by trimming activeBuffer.lines and
+    // rewriting ybase/ydisp, which makes Localterm jump to the top and destroys
+    // history. Codex emits it after resize reflow; pi-mono and Claude Code emit
+    // it on full redraws; Cursor Agent emits it on mount/width-triggered clears. A
+    // parser handler is narrower and more robust than byte filtering: xterm
+    // normalizes split writes, 8-bit CSI, and `03` params before this callback.
+    // We intentionally still allow ED0/1/2 visible clears, alt-buffer switches
+    // (`?1049h/l`, handled by xterm without deleting normal scrollback), and
+    // RIS (`ESC c`), which is a full terminal reset rather than a redraw clear.
+    const scrollbackPurgeDisposable = terminal.parser.registerCsiHandler(
+      { final: "J" },
+      shouldBlockTerminalScrollbackPurge,
+    );
+    const selectiveScrollbackPurgeDisposable = terminal.parser.registerCsiHandler(
+      { prefix: "?", final: "J" },
+      shouldBlockTerminalScrollbackPurge,
+    );
 
     const send = (message: ClientToServerMessage) => {
       if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+    };
+
+    const clearResizeScrollRestore = () => {
+      const state = resizeScrollRestoreRef.current;
+      if (state) window.clearTimeout(state.timer);
+      resizeScrollRestoreRef.current = null;
+    };
+
+    const restoreResizeScroll = () => {
+      const state = resizeScrollRestoreRef.current;
+      if (!state) return;
+      if (Date.now() > state.expiresAtMs) {
+        clearResizeScrollRestore();
+        return;
+      }
+      restoreTerminalScrollAnchor(terminal, state.anchor);
+    };
+
+    const restoreAfterOutputWrite = (outputScrollAnchor: TerminalScrollAnchor) => {
+      if (resizeScrollRestoreRef.current) {
+        restoreResizeScroll();
+        return;
+      }
+      if (outputScrollAnchor.wasAtBottom) restoreTerminalScrollAnchor(terminal, outputScrollAnchor);
+    };
+
+    const beginResizeScrollRestore = (anchor: TerminalScrollAnchor) => {
+      clearResizeScrollRestore();
+      const timer = window.setTimeout(() => {
+        restoreResizeScroll();
+        resizeScrollRestoreRef.current = null;
+      }, RESIZE_SCROLL_RESTORE_WINDOW_MS);
+      resizeScrollRestoreRef.current = {
+        anchor,
+        expiresAtMs: Date.now() + RESIZE_SCROLL_RESTORE_WINDOW_MS,
+        timer,
+      };
     };
 
     terminal.attachCustomWheelEventHandler((event) => {
@@ -416,9 +495,11 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     const sendResize = (cols: number, rows: number) => send({ type: "resize", cols, rows });
 
     const fitToContainer = () => {
+      const resizeScrollAnchor = captureTerminalScrollAnchor(terminal);
       // Skip the resize ping when fit() bailed out (unmeasured container) — sending
       // the previous cols/rows would briefly desync the PTY until the next observer tick.
       if (!fitTerminalPreservingScroll(terminal, fitAddon)) return;
+      beginResizeScrollRestore(resizeScrollAnchor);
       sendResize(terminal.cols, terminal.rows);
     };
 
@@ -467,7 +548,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
     const connect = () => {
       if (disposed) return;
-      const nextSocket = new WebSocket(buildWebSocketUrl());
+      const nextSocket = new WebSocket(buildWebSocketUrl(liveCwdRef.current));
       socket = nextSocket;
 
       nextSocket.addEventListener("open", () => {
@@ -489,7 +570,8 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
         if (!parsed.success) return;
         const message = parsed.data;
         if (message.type === "output") {
-          terminal.write(message.data);
+          const outputScrollAnchor = captureTerminalScrollAnchor(terminal);
+          terminal.write(message.data, () => restoreAfterOutputWrite(outputScrollAnchor));
           noteOutputActivity();
         } else if (message.type === "title") {
           applyIncomingTitle(message.title);
@@ -500,6 +582,9 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
             pid: message.pid,
             cwd: message.cwd,
           });
+          setLiveCwd(message.cwd);
+        } else if (message.type === "cwd") {
+          setLiveCwd(message.cwd);
         } else if (message.type === "exit") {
           resetFavicon();
           markShellDead(message.code);
@@ -575,8 +660,11 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       kittyPushDisposable.dispose();
       kittyPopDisposable.dispose();
       kittySetDisposable.dispose();
+      scrollbackPurgeDisposable.dispose();
+      selectiveScrollbackPurgeDisposable.dispose();
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      clearResizeScrollRestore();
       resetFavicon();
       observer.disconnect();
       try {
@@ -818,10 +906,30 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     };
   }, []);
 
+  useEffect(() => {
+    liveCwdRef.current = liveCwd;
+    if (!liveCwd) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set(CWD_QUERY_PARAM, liveCwd);
+    window.history.replaceState(null, "", url);
+  }, [liveCwd]);
+
+  const newTabUrl = buildNewTabUrl(liveCwd);
+
   const isSessionOver = exitInfo !== null;
   const isDisconnected =
     !isSessionOver && consecutiveFailures >= DISCONNECT_MODAL_THRESHOLD_FAILURES;
   const isModalOpen = isSessionOver || isDisconnected;
+
+  const isConnectionLost = exitInfo !== null && exitInfo.reason !== "shell-exited";
+
+  useEffect(() => {
+    if (!isConnectionLost) return;
+    const intervalId = window.setInterval(() => {
+      triggerManualReconnect();
+    }, RECONNECT_POLL_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [isConnectionLost, triggerManualReconnect]);
 
   useEffect(() => {
     onModalOpenChange?.(isModalOpen);
@@ -908,7 +1016,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
                     size="icon-sm"
                     nativeButton={false}
                     aria-label="open a new shell in a new browser tab"
-                    render={<a href="/" target="_blank" rel="noopener noreferrer" />}
+                    render={<a href={newTabUrl} target="_blank" rel="noopener noreferrer" />}
                     className="hover:text-foreground"
                   />
                 }
@@ -980,18 +1088,25 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogAction onClick={openNewShellInNewTab}>New shell</AlertDialogAction>
+                  <AlertDialogAction
+                    onClick={() => window.open(newTabUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    New shell
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </>
             ) : (
               <>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Connection lost</AlertDialogTitle>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <Spinner aria-hidden="true" role="presentation" aria-label={undefined} />
+                    Connection lost
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
                     The browser lost its connection to the localterm daemon (close code{" "}
                     {exitInfo.closeCode}
                     {exitInfo.closeReason ? ` · ${exitInfo.closeReason}` : ""}). Reconnecting spawns
-                    a fresh shell — the previous one can't be reattached.
+                    a fresh shell. The previous one can't be reattached.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

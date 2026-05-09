@@ -1,5 +1,7 @@
 export const RECONNECT_DELAY_MS = 1000;
 export const RESIZE_DEBOUNCE_MS = 80;
+export const RESIZE_SCROLL_RESTORE_WINDOW_MS = 1200;
+export const TERMINAL_SCROLLBACK_PURGE_ERASE_DISPLAY_PARAM = 3;
 export const DEFAULT_TERMINAL_FONT_SIZE_PX = 13;
 export const TERMINAL_FONT_SIZE_MIN_PX = 9;
 export const TERMINAL_FONT_SIZE_MAX_PX = 24;
@@ -18,6 +20,7 @@ export const DISCONNECT_MODAL_THRESHOLD_FAILURES = 2;
 export const RESTART_COMMAND = "npx localterm@latest start";
 export const COPY_FEEDBACK_MS = 1500;
 export const RETRY_BUTTON_FEEDBACK_MS = 800;
+export const RECONNECT_POLL_INTERVAL_MS = 5000;
 export const FAVICON_ACTIVE_DEBOUNCE_MS = 250;
 export const FAVICON_IDLE_DEBOUNCE_MS = 750;
 export const FAVICON_DEAD_OPACITY = 0.35;

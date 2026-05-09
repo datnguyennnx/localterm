@@ -65,9 +65,17 @@ const sessionMessageSchema = z
   })
   .strict();
 
+const cwdMessageSchema = z
+  .object({
+    type: z.literal("cwd"),
+    cwd: z.string().min(1),
+  })
+  .strict();
+
 export const serverToClientMessageSchema = z.discriminatedUnion("type", [
   outputMessageSchema,
   exitMessageSchema,
   titleMessageSchema,
   sessionMessageSchema,
+  cwdMessageSchema,
 ]);

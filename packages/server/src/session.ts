@@ -26,6 +26,7 @@ interface SessionEvents {
   output: [data: string];
   exit: [code: number | null];
   title: [title: string];
+  cwd: [cwd: string];
 }
 
 export class Session extends EventEmitter<SessionEvents> {
@@ -41,6 +42,7 @@ export class Session extends EventEmitter<SessionEvents> {
   private paused = false;
   private titlePollTimer: NodeJS.Timeout | null = null;
   private lastEmittedTitle = "";
+  private lastEmittedCwd = "";
   private nextCwdResolveAt = 0;
 
   constructor(input: SpawnPtyInput) {
@@ -189,8 +191,13 @@ export class Session extends EventEmitter<SessionEvents> {
   private async runTitlePoll(): Promise<void> {
     if (this.exited) return;
     try {
-      const nextTitle = await this.computeTitle();
+      const liveCwd = await this.resolveLiveCwd();
       if (this.exited) return;
+      if (liveCwd && liveCwd !== this.lastEmittedCwd) {
+        this.lastEmittedCwd = liveCwd;
+        this.emit("cwd", liveCwd);
+      }
+      const nextTitle = this.computeTitle(liveCwd);
       if (nextTitle && nextTitle !== this.lastEmittedTitle) {
         this.lastEmittedTitle = nextTitle;
         this.emit("title", nextTitle);
@@ -202,10 +209,9 @@ export class Session extends EventEmitter<SessionEvents> {
     }
   }
 
-  private async computeTitle(): Promise<string | null> {
+  private computeTitle(liveCwd: string | null): string | null {
     const foreground = this.pty.process?.trim() ?? "";
     if (foreground && foreground !== this.shellName) return foreground;
-    const liveCwd = await this.resolveLiveCwd();
     return formatWorkingDirectoryTitle(liveCwd ?? this.cwd);
   }
 

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { serve, type ServerType } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -143,13 +144,24 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
         }
       };
 
+      const rawCwd = context.req.query("cwd");
+      let requestedCwd: string | undefined;
+      if (rawCwd) {
+        try {
+          const stat = fs.statSync(rawCwd);
+          if (stat.isDirectory()) requestedCwd = rawCwd;
+        } catch {
+          /* invalid or inaccessible path; fall back to default cwd */
+        }
+      }
+
       return {
         onOpen(_event, ws) {
           if (registry.size() >= MAX_CONCURRENT_SESSIONS) {
             ws.close(WS_CLOSE_CAPACITY_REACHED, "session capacity reached");
             return;
           }
-          const newSession = new Session({});
+          const newSession = new Session({ cwd: requestedCwd });
           session = newSession;
           registry.register(newSession);
 
@@ -216,6 +228,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             }
           };
           const onTitle = (title: string) => safeSend(ws, { type: "title", title });
+          const onCwd = (cwd: string) => safeSend(ws, { type: "cwd", cwd });
           const onExit = (code: number | null) => {
             stopDrainPoll();
             stopHeartbeatChecks();
@@ -224,6 +237,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           };
           newSession.on("output", onOutput);
           newSession.on("title", onTitle);
+          newSession.on("cwd", onCwd);
           newSession.on("exit", onExit);
 
           safeSend(ws, {
