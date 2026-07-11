@@ -1,17 +1,23 @@
 import { ChevronDown, MonitorCog, Settings } from "lucide-react";
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { LocalFontPicker } from "@/components/local-font-picker";
 import { NumberStepper } from "@/components/number-stepper";
 import { SettingsSelect, type SettingsSelectItem } from "@/components/settings-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { PANEL_ANIMATION_CLASSES, TRANSLUCENT_PANEL_CLASSES } from "@/lib/animation-classes";
+import { TRANSLUCENT_PANEL_CLASSES } from "@/lib/animation-classes";
 import {
   LOCAL_FONT_ID,
   TERMINAL_FONT_SIZE_MAX_PX,
@@ -149,18 +155,17 @@ export const SettingsMenu = ({
   onScrollOnUserInputChange,
   sessionInfo,
 }: SettingsMenuProps) => {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isFontSelectOpen, setIsFontSelectOpen] = useState(false);
   const [isLocalFontPickerOpen, setIsLocalFontPickerOpen] = useState(false);
-  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
 
   const fontItems = useMemo<readonly SettingsSelectItem[]>(() => {
     if (fontId !== LOCAL_FONT_ID || !localFontFamily) return BUILTIN_FONT_ITEMS;
     return [...BUILTIN_FONT_ITEMS, buildLocalFontItem(localFontFamily)];
   }, [fontId, localFontFamily]);
 
-  const handlePopoverOpenChange = (open: boolean) => {
-    setIsPopoverOpen(open);
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsDialogOpen(open);
     if (!open) {
       setIsFontSelectOpen(false);
       setIsLocalFontPickerOpen(false);
@@ -211,11 +216,11 @@ export const SettingsMenu = ({
   };
 
   return (
-    <Popover open={isPopoverOpen} onOpenChange={handlePopoverOpenChange}>
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
       <Tooltip>
         <TooltipTrigger
           render={
-            <PopoverTrigger
+            <DialogTrigger
               render={
                 <Button
                   variant="ghost"
@@ -229,24 +234,21 @@ export const SettingsMenu = ({
         >
           <Settings />
         </TooltipTrigger>
-        {/* Suppress the tooltip while the popover is open — both float over the same trigger and would visually fight. */}
-        {isPopoverOpen ? null : (
+        {isDialogOpen ? null : (
           <TooltipContent side="bottom" sideOffset={TOOLTIP_SIDE_OFFSET_PX}>
             Settings
           </TooltipContent>
         )}
       </Tooltip>
-      <PopoverContent
-        ref={settingsPanelRef}
-        side="bottom"
-        align="end"
-        sideOffset={TOOLTIP_SIDE_OFFSET_PX}
+      <DialogContent
         className={cn(
-          "w-64 gap-0 overflow-hidden p-3",
+          "max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-4 sm:max-w-md",
           TRANSLUCENT_PANEL_CLASSES,
-          PANEL_ANIMATION_CLASSES,
         )}
       >
+        <DialogHeader className="mb-4 pr-8">
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
         <FieldGroup className="gap-3">
           <Field orientation="vertical" className="gap-1.5">
             <FieldLabel className={SECTION_LABEL_CLASSES}>Theme</FieldLabel>
@@ -409,14 +411,13 @@ export const SettingsMenu = ({
             </>
           ) : null}
         </FieldGroup>
-      </PopoverContent>
+      </DialogContent>
       <LocalFontPicker
         open={isLocalFontPickerOpen}
         onOpenChange={setIsLocalFontPickerOpen}
-        anchorRef={settingsPanelRef}
         currentFamily={localFontFamily}
         onApply={onLocalFontChange}
       />
-    </Popover>
+    </Dialog>
   );
 };

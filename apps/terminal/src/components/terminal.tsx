@@ -54,6 +54,9 @@ import {
   SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
   SEARCH_ACTIVE_MATCH_BORDER_HEX,
   SEARCH_MATCH_BACKGROUND_HEX,
+  TERMINAL_KEYBOARD_HIDE_VIEWPORT_GROWTH_PX,
+  TERMINAL_TAP_MOVEMENT_THRESHOLD_PX,
+  TERMINAL_VIEWPORT_WIDTH_STABLE_PX,
   TOOLTIP_SIDE_OFFSET_PX,
 } from "@/lib/constants";
 import { serverToClientMessageSchema } from "@/lib/schemas";
@@ -73,11 +76,14 @@ import { formatConnectionLostMarker } from "@/utils/format-connection-lost-marke
 import { formatShellExitMarker } from "@/utils/format-shell-exit-marker";
 import { chunkInputByCodeUnits } from "@/utils/chunk-input-by-code-units";
 import { restoreTerminalScrollAnchor } from "@/utils/restore-terminal-scroll-anchor";
+import { remeasureTerminalFont } from "@/utils/remeasure-terminal-font";
 import { shouldBlockTerminalScrollbackPurge } from "@/utils/should-block-terminal-scrollback-purge";
 import { clampTerminalFontSize } from "@/utils/clamp-terminal-font-size";
 import { clampTerminalLineHeight } from "@/utils/clamp-terminal-line-height";
+import { detectIsAppleWebKit } from "@/utils/detect-is-apple-webkit";
 import { detectIsMacPlatform } from "@/utils/detect-is-mac-platform";
 import { isFindShortcut } from "@/utils/is-find-shortcut";
+import { isCoarsePointer } from "@/utils/is-coarse-pointer";
 import { loadStoredLocalFontFamily } from "@/utils/load-stored-local-font-family";
 import { loadStoredTerminalCursorBlink } from "@/utils/load-stored-terminal-cursor-blink";
 import { loadStoredTerminalCursorStyle } from "@/utils/load-stored-terminal-cursor-style";
@@ -98,6 +104,7 @@ import { storeTerminalLineHeight } from "@/utils/store-terminal-line-height";
 import { storeTerminalScrollback } from "@/utils/store-terminal-scrollback";
 import { storeTerminalScrollOnUserInput } from "@/utils/store-terminal-scroll-on-user-input";
 import { storeTerminalThemeId } from "@/utils/store-terminal-theme-id";
+import { syncAppleWebKitViewport } from "@/utils/sync-apple-webkit-viewport";
 import { MAX_INPUT_BYTES, type ClientToServerMessage } from "localterm-server/protocol";
 import "@xterm/xterm/css/xterm.css";
 
@@ -154,6 +161,7 @@ interface ResizeScrollRestoreState {
 }
 
 export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<XtermTerminal | null>(null);
   const manualReconnectRef = useRef<(() => void) | null>(null);
@@ -173,6 +181,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const initialScrollbackRef = useRef<number>(loadStoredTerminalScrollback());
   const initialScrollOnUserInputRef = useRef<boolean>(loadStoredTerminalScrollOnUserInput());
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const webglAddonRef = useRef<WebglAddon | null>(null);
   const openSearchOverlayRef = useRef<(() => void) | null>(null);
   const [exitInfo, setExitInfo] = useState<ExitInfo | null>(null);
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
@@ -217,6 +226,16 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const [liveCwd, setLiveCwd] = useState<string | null>(null);
   const liveCwdRef = useRef<string | null>(null);
   const isMac = useMemo(detectIsMacPlatform, []);
+  const isTouchDevice = useMemo(isCoarsePointer, []);
+  const isAppleWebKit = useMemo(detectIsAppleWebKit, []);
+
+  useEffect(() => {
+    if (!isTouchDevice || !isAppleWebKit) return;
+    const root = rootRef.current;
+    const visualViewport = window.visualViewport;
+    if (!root || !visualViewport) return;
+    return syncAppleWebKitViewport(root, visualViewport);
+  }, [isTouchDevice, isAppleWebKit]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -229,6 +248,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     let socket: WebSocket | null = null;
     let reconnectTimer: number | null = null;
     let resizeTimer: number | null = null;
+    let resizeScrollAnimationFrame: number | null = null;
     let faviconActiveTimer: number | null = null;
     let faviconIdleTimer: number | null = null;
     let faviconState: "idle" | "active" = "idle";
@@ -285,7 +305,6 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       initialFontIdRef.current,
       initialLocalFontFamilyRef.current,
     );
-    void awaitFontReady(initialFont);
 
     const terminal = new XtermTerminal({
       allowProposedApi: true,
@@ -309,7 +328,6 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     terminal.loadAddon(new ProgressAddon());
     const unicodeGraphemesAddon = new UnicodeGraphemesAddon();
     terminal.loadAddon(unicodeGraphemesAddon);
-    terminal.unicode.activeVersion = "15";
     const searchAddon = new SearchAddon();
     terminal.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
@@ -318,10 +336,112 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     terminal.open(container);
     try {
       const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => webglAddon.dispose());
+      webglAddonRef.current = webglAddon;
+      webglAddon.onContextLoss(() => {
+        if (webglAddonRef.current === webglAddon) webglAddonRef.current = null;
+        webglAddon.dispose();
+      });
       terminal.loadAddon(webglAddon);
     } catch {
       /* webgl unavailable; xterm falls back to canvas */
+    }
+
+    const helperTextArea = terminal.textarea;
+    if (helperTextArea) {
+      helperTextArea.autocomplete = "off";
+      helperTextArea.setAttribute("autocapitalize", "off");
+      helperTextArea.setAttribute("autocorrect", "off");
+      helperTextArea.spellcheck = false;
+    }
+
+    let tapStartClientX = 0;
+    let tapStartClientY = 0;
+    let didTapMoveBeyondThreshold = false;
+    const focusTerminalForInput = () => {
+      if (terminal.textarea) terminal.textarea.inputMode = "";
+      terminal.focus();
+    };
+    const refocusTerminalQuietly = () => {
+      if (isTouchDevice && terminal.textarea) terminal.textarea.inputMode = "none";
+      terminal.focus();
+    };
+    const handleTerminalTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        didTapMoveBeyondThreshold = true;
+        return;
+      }
+      tapStartClientX = event.touches[0].clientX;
+      tapStartClientY = event.touches[0].clientY;
+      didTapMoveBeyondThreshold = false;
+    };
+    const handleTerminalTouchMove = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        didTapMoveBeyondThreshold = true;
+        return;
+      }
+      const movedPx = Math.hypot(
+        event.touches[0].clientX - tapStartClientX,
+        event.touches[0].clientY - tapStartClientY,
+      );
+      if (movedPx > TERMINAL_TAP_MOVEMENT_THRESHOLD_PX) {
+        didTapMoveBeyondThreshold = true;
+      }
+    };
+    const handleTerminalTouchEnd = (event: TouchEvent) => {
+      if (didTapMoveBeyondThreshold) {
+        event.preventDefault();
+        return;
+      }
+      focusTerminalForInput();
+    };
+    const touchListenerAbort = new AbortController();
+    if (isTouchDevice) {
+      const guardTextarea = () => {
+        if (terminal.textarea) terminal.textarea.inputMode = "none";
+      };
+      const blurAndGuardTextarea = () => {
+        if (!terminal.textarea) return;
+        terminal.textarea.blur();
+        terminal.textarea.inputMode = "none";
+      };
+      guardTextarea();
+      terminal.textarea?.addEventListener("blur", guardTextarea, {
+        signal: touchListenerAbort.signal,
+      });
+      const visualViewport = window.visualViewport;
+      if (visualViewport) {
+        let previousViewportHeight = visualViewport.height;
+        let previousViewportWidth = visualViewport.width;
+        const handleViewportResize = () => {
+          const height = visualViewport.height;
+          const width = visualViewport.width;
+          const didViewportGrow =
+            height > previousViewportHeight + TERMINAL_KEYBOARD_HIDE_VIEWPORT_GROWTH_PX;
+          const didViewportWidthStayStable =
+            Math.abs(width - previousViewportWidth) < TERMINAL_VIEWPORT_WIDTH_STABLE_PX;
+          if (didViewportGrow && didViewportWidthStayStable) blurAndGuardTextarea();
+          previousViewportHeight = height;
+          previousViewportWidth = width;
+        };
+        visualViewport.addEventListener("resize", handleViewportResize, {
+          signal: touchListenerAbort.signal,
+        });
+      }
+      terminal.element?.addEventListener("touchstart", handleTerminalTouchStart, {
+        capture: true,
+        passive: true,
+        signal: touchListenerAbort.signal,
+      });
+      terminal.element?.addEventListener("touchmove", handleTerminalTouchMove, {
+        capture: true,
+        passive: true,
+        signal: touchListenerAbort.signal,
+      });
+      terminal.element?.addEventListener("touchend", handleTerminalTouchEnd, {
+        capture: true,
+        passive: false,
+        signal: touchListenerAbort.signal,
+      });
     }
 
     const kittyPushDisposable = terminal.parser.registerCsiHandler(
@@ -394,6 +514,10 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     const clearResizeScrollRestore = () => {
       const state = resizeScrollRestoreRef.current;
       if (state) window.clearTimeout(state.timer);
+      if (resizeScrollAnimationFrame !== null) {
+        window.cancelAnimationFrame(resizeScrollAnimationFrame);
+        resizeScrollAnimationFrame = null;
+      }
       resizeScrollRestoreRef.current = null;
     };
 
@@ -426,6 +550,10 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
         expiresAtMs: Date.now() + RESIZE_SCROLL_RESTORE_WINDOW_MS,
         timer,
       };
+      resizeScrollAnimationFrame = window.requestAnimationFrame(() => {
+        resizeScrollAnimationFrame = null;
+        restoreResizeScroll();
+      });
     };
 
     terminal.attachCustomWheelEventHandler((event) => {
@@ -486,17 +614,14 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
     const titleDisposable = terminal.onTitleChange(applyIncomingTitle);
 
-    refocusTerminalRef.current = () => terminal.focus();
+    refocusTerminalRef.current = refocusTerminalQuietly;
 
     const sendResize = (cols: number, rows: number) => send({ type: "resize", cols, rows });
 
     const fitToContainer = () => {
       const resizeScrollAnchor = captureTerminalScrollAnchor(terminal);
-      // Skip the resize ping when fit() bailed out (unmeasured container) — sending
-      // the previous cols/rows would briefly desync the PTY until the next observer tick.
       if (!fitTerminalPreservingScroll(terminal, fitAddon)) return;
       beginResizeScrollRestore(resizeScrollAnchor);
-      sendResize(terminal.cols, terminal.rows);
     };
 
     const scheduleFit = () => {
@@ -517,7 +642,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     const observer = new ResizeObserver(scheduleFit);
     observer.observe(container);
     fitToContainer();
-    terminal.focus();
+    refocusTerminalQuietly();
 
     const markShellDead = (exitCode: number | null) => {
       if (exited) return;
@@ -545,6 +670,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     const connect = () => {
       if (disposed) return;
       const nextSocket = new WebSocket(buildWebSocketUrl(liveCwdRef.current));
+      nextSocket.binaryType = "arraybuffer";
       socket = nextSocket;
 
       nextSocket.addEventListener("open", () => {
@@ -556,9 +682,18 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
       nextSocket.addEventListener("message", (event) => {
         if (disposed || socket !== nextSocket) return;
+        if (event.data instanceof ArrayBuffer) {
+          const outputScrollAnchor = captureTerminalScrollAnchor(terminal);
+          terminal.write(new Uint8Array(event.data), () =>
+            restoreAfterOutputWrite(outputScrollAnchor),
+          );
+          noteOutputActivity();
+          return;
+        }
+        if (typeof event.data !== "string") return;
         let raw: unknown;
         try {
-          raw = JSON.parse(typeof event.data === "string" ? event.data : String(event.data));
+          raw = JSON.parse(event.data);
         } catch {
           return;
         }
@@ -650,6 +785,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       searchAddonRef.current = null;
       terminalRef.current = null;
       fitAddonRef.current = null;
+      webglAddonRef.current = null;
       titleDisposable.dispose();
       searchResultsDisposable.dispose();
       kittyPushDisposable.dispose();
@@ -657,6 +793,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       kittySetDisposable.dispose();
       scrollbackPurgeDisposable.dispose();
       selectiveScrollbackPurgeDisposable.dispose();
+      touchListenerAbort.abort();
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       if (resizeTimer !== null) window.clearTimeout(resizeTimer);
       clearResizeScrollRestore();
@@ -687,9 +824,14 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       if (cancelled) return;
       const liveTerminal = terminalRef.current;
       if (!liveTerminal) return;
-      liveTerminal.options.fontFamily = effectiveFont.family;
       const liveFitAddon = fitAddonRef.current;
-      if (liveFitAddon) fitTerminalPreservingScroll(liveTerminal, liveFitAddon);
+      if (!liveFitAddon) return;
+      remeasureTerminalFont(
+        liveTerminal,
+        liveFitAddon,
+        webglAddonRef.current,
+        effectiveFont.family,
+      );
     });
     return () => {
       cancelled = true;
@@ -937,7 +1079,11 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const pageBackground = effectiveTheme.colors.background ?? FALLBACK_TERMINAL_BACKGROUND_HEX;
 
   return (
-    <div className="h-dvh w-dvw" style={{ background: pageBackground }}>
+    <main
+      ref={rootRef}
+      className="h-dvh w-dvw pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
+      style={{ background: pageBackground }}
+    >
       <div className="relative h-full w-full">
         <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" />
         {exitInfo !== null ? (
@@ -958,6 +1104,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
           <div
             role="toolbar"
             aria-label="terminal actions"
+            data-terminal-toolbar
             className="absolute top-2 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border/60 bg-background/70 p-0.5 text-muted-foreground shadow-xs backdrop-blur-md"
           >
             <SettingsMenu
@@ -1027,7 +1174,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
           <InputGroup
             role="search"
             aria-label="find in terminal"
-            className="absolute top-2 right-3 z-10 w-80 border-border/60 bg-background/70 text-muted-foreground shadow-xs backdrop-blur-md dark:bg-background/70"
+            className="absolute top-2 right-3 z-10 w-[min(20rem,calc(100vw-1.5rem))] border-border/60 bg-background/70 text-muted-foreground shadow-xs backdrop-blur-md dark:bg-background/70"
           >
             <InputGroupInput
               ref={searchInputRef}
@@ -1153,6 +1300,6 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
           )}
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </main>
   );
 };

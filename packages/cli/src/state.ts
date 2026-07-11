@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { getLogFile, getPidFile, getPortFile, getStateDirectory } from "./paths.js";
 
 export const ensureStateDirectory = (): void => {
@@ -19,8 +26,14 @@ export const ensureLogFile = (): string => {
 
 export const writePid = (pid: number, port: number): void => {
   ensureStateDirectory();
-  writeFileSync(getPidFile(), String(pid), "utf8");
-  writeFileSync(getPortFile(), String(port), "utf8");
+  const pidFile = getPidFile();
+  const portFile = getPortFile();
+  const temporaryPidFile = `${pidFile}.tmp`;
+  const temporaryPortFile = `${portFile}.tmp`;
+  writeFileSync(temporaryPidFile, String(pid), "utf8");
+  writeFileSync(temporaryPortFile, String(port), "utf8");
+  renameSync(temporaryPidFile, pidFile);
+  renameSync(temporaryPortFile, portFile);
 };
 
 export const clearPid = (): void => {
@@ -53,7 +66,10 @@ export const isAlive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
+  } catch (error) {
+    if (error && typeof error === "object" && Reflect.get(error, "code") === "EPERM") {
+      return true;
+    }
     return false;
   }
 };

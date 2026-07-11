@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { SettingsMenu } from "../../src/components/settings-menu";
 import type { TerminalSessionInfo } from "../../src/lib/terminal-session-info";
@@ -100,6 +100,43 @@ describe("SettingsMenu trigger", () => {
   it("renders a labelled gear button", () => {
     renderSettingsMenu();
     expect(screen.getByLabelText("terminal settings")).toBeDefined();
+  });
+});
+
+describe("SettingsMenu dialog", () => {
+  it("uses bounded accessible dialog geometry", () => {
+    renderSettingsMenu();
+    fireEvent.click(screen.getByLabelText("terminal settings"));
+
+    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    expect(dialog.className).toContain("max-h-[calc(100dvh-2rem)]");
+    expect(dialog.className).toContain("max-w-[calc(100%-2rem)]");
+    expect(screen.getByRole("button", { name: "Close" })).toBeDefined();
+  });
+
+  it("dismisses with Escape and restores focus to the trigger", async () => {
+    renderSettingsMenu();
+    const trigger = screen.getByLabelText("terminal settings");
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
+
+  it("contains local font selection in a second bounded dialog", () => {
+    renderSettingsMenu();
+    fireEvent.click(screen.getByLabelText("terminal settings"));
+    fireEvent.click(screen.getByLabelText("select font"));
+    fireEvent.click(screen.getByText("Local font…"));
+
+    const localFontDialog = screen.getByRole("dialog", { name: "Local font" });
+    expect(localFontDialog.className).toContain("max-h-[calc(100dvh-2rem)]");
+    expect(localFontDialog.className).toContain("max-w-[calc(100%-2rem)]");
   });
 });
 
@@ -471,7 +508,7 @@ describe("SettingsMenu live preview", () => {
     expect(onCursorStylePreview).toHaveBeenCalledWith(null);
   });
 
-  it("clears all three previews when the outer popover closes mid-hover", () => {
+  it("clears all three previews when the settings dialog closes mid-hover", () => {
     const onThemePreview = vi.fn();
     const onFontPreview = vi.fn();
     const onCursorStylePreview = vi.fn();

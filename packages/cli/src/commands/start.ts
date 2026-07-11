@@ -16,7 +16,7 @@ import {
   STOP_COMMAND,
 } from "../constants.js";
 import { cliError, exitCodeForCliError } from "../errors.js";
-import { clearPid, ensureLogFile, isAlive, readPort, writePid } from "../state.js";
+import { clearPid, ensureLogFile, isAlive, readPid, readPort, writePid } from "../state.js";
 import { buildDaemonStartArgs } from "../utils/build-daemon-args.js";
 import { pollForDaemonReady } from "../utils/poll-for-daemon-ready.js";
 import { reportCliError } from "../utils/report-cli-error.js";
@@ -56,7 +56,7 @@ export const runStart = async (options: StartOptions): Promise<void> => {
 };
 
 const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
-  const preflightError = runStartPreflight(options.host);
+  const preflightError = await runStartPreflight(options.host);
   if (preflightError !== null) {
     reportCliError(preflightError);
     process.exit(exitCodeForCliError(preflightError));
@@ -83,6 +83,7 @@ const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
     maxWaitMs: DAEMON_PROBE_MAX_WAIT_MS,
     logPath,
     isAlive,
+    readPid,
     readPort,
     sleep,
   });
@@ -91,15 +92,6 @@ const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
     printDaemonStartedBanner(result.port);
     if (options.open) await openInBrowser(getFriendlyUrl(result.port));
     return;
-  }
-
-  if (result.error.kind === "daemon-ready-timeout" && isAlive(childPid)) {
-    const finalPort = readPort();
-    if (finalPort !== null && finalPort !== portBeforeSpawn) {
-      printDaemonStartedBanner(finalPort);
-      if (options.open) await openInBrowser(getFriendlyUrl(finalPort));
-      return;
-    }
   }
 
   reportCliError(result.error);
@@ -120,7 +112,7 @@ const openInBrowser = async (url: string): Promise<void> => {
 };
 
 const runStartInForeground = async (options: StartOptions): Promise<void> => {
-  const preflightError = runStartPreflight(options.host);
+  const preflightError = await runStartPreflight(options.host);
   if (preflightError !== null) {
     reportCliError(preflightError);
     process.exit(exitCodeForCliError(preflightError));

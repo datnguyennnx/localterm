@@ -15,6 +15,7 @@ beforeAll(() => {
   staticRoot = mkdtempSync(path.join(os.tmpdir(), "localterm-static-"));
   writeFileSync(path.join(staticRoot, "index.html"), "<!doctype html><title>root</title>");
   writeFileSync(path.join(staticRoot, "app.js"), "console.log('app');");
+  writeFileSync(path.join(staticRoot, "manifest.webmanifest"), "{}");
   mkdirSync(path.join(staticRoot, "assets"), { recursive: true });
   writeFileSync(path.join(staticRoot, "assets", "logo.svg"), "<svg/>");
 
@@ -33,6 +34,11 @@ describe("resolveStaticAsset", () => {
   it("serves nested assets", () => {
     const asset = resolveStaticAsset(staticRoot, "/assets/logo.svg");
     expect(asset?.contentType).toBe("image/svg+xml");
+  });
+
+  it("serves web manifests with the installable-app MIME type", () => {
+    const asset = resolveStaticAsset(staticRoot, "/manifest.webmanifest");
+    expect(asset?.contentType).toBe("application/manifest+json; charset=utf-8");
   });
 
   it("falls back to index.html for SPA routes (no extension)", () => {

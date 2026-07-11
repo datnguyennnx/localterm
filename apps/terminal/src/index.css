@@ -19,6 +19,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+@media (pointer: coarse) {
+  [data-terminal-toolbar] [data-slot="button"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  [data-slot="dialog-content"] > [data-slot="dialog-close"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

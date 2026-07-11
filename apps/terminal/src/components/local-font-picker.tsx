@@ -1,17 +1,10 @@
-import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { Search } from "lucide-react";
-import {
-  type CSSProperties,
-  type RefObject,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CSSProperties, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { PANEL_ANIMATION_CLASSES, TRANSLUCENT_PANEL_CLASSES } from "@/lib/animation-classes";
-import { LOCAL_FONT_ROW_INTRINSIC_HEIGHT_PX, TOOLTIP_SIDE_OFFSET_PX } from "@/lib/constants";
+import { TRANSLUCENT_PANEL_CLASSES } from "@/lib/animation-classes";
+import { LOCAL_FONT_ROW_INTRINSIC_HEIGHT_PX } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { escapeCssFontFamily } from "@/utils/escape-css-font-family";
 import {
@@ -23,7 +16,6 @@ import { isLocalFontAccessSupported, queryLocalFonts } from "@/utils/query-local
 interface LocalFontPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  anchorRef: RefObject<HTMLDivElement | null>;
   currentFamily: string | null;
   onApply: (family: string) => void;
 }
@@ -34,9 +26,6 @@ type PickerState =
   | { kind: "denied" }
   | { kind: "prompt" }
   | { kind: "ready"; families: readonly string[] };
-
-const POPUP_CLASSES =
-  "z-50 flex w-72 origin-(--transform-origin) flex-col gap-2 overflow-hidden rounded-md p-2 outline-hidden";
 
 const ROW_BASE_CLASSES =
   "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-foreground/90 outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10";
@@ -98,7 +87,6 @@ const ManualFamilyInput = ({ initialValue, onApply }: ManualFamilyInputProps) =>
 export const LocalFontPicker = ({
   open,
   onOpenChange,
-  anchorRef,
   currentFamily,
   onApply,
 }: LocalFontPickerProps) => {
@@ -157,100 +145,93 @@ export const LocalFontPicker = ({
   }, [state, deferredQuery]);
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Positioner
-          anchor={anchorRef}
-          side="left"
-          align="start"
-          sideOffset={TOOLTIP_SIDE_OFFSET_PX}
-          className="isolate z-50"
-        >
-          <PopoverPrimitive.Popup
-            className={cn(POPUP_CLASSES, TRANSLUCENT_PANEL_CLASSES, PANEL_ANIMATION_CLASSES)}
-          >
-            {state.kind === "loading" ? (
-              <p className={HELP_TEXT_CLASSES}>Loading…</p>
-            ) : state.kind === "unsupported" ? (
-              <>
-                <p className={HELP_TEXT_CLASSES}>
-                  This browser doesn't expose installed fonts. Type a family name to use any
-                  installed font.
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className={cn(
+          "max-h-[calc(100dvh-2rem)] gap-2 overflow-hidden p-4 sm:max-w-sm",
+          TRANSLUCENT_PANEL_CLASSES,
+        )}
+      >
+        <DialogHeader className="pr-8">
+          <DialogTitle>Local font</DialogTitle>
+        </DialogHeader>
+        {state.kind === "loading" ? (
+          <p className={HELP_TEXT_CLASSES}>Loading…</p>
+        ) : state.kind === "unsupported" ? (
+          <>
+            <p className={HELP_TEXT_CLASSES}>
+              This browser doesn't expose installed fonts. Type a family name to use any installed
+              font.
+            </p>
+            <ManualFamilyInput initialValue={currentFamily ?? ""} onApply={handleApply} />
+          </>
+        ) : state.kind === "denied" ? (
+          <>
+            <p className={HELP_TEXT_CLASSES}>
+              Permission denied. Re-allow in browser site settings, or type a family name.
+            </p>
+            <ManualFamilyInput initialValue={currentFamily ?? ""} onApply={handleApply} />
+          </>
+        ) : state.kind === "prompt" ? (
+          <>
+            <p className={HELP_TEXT_CLASSES}>
+              Allow localterm to read your installed fonts to preview them.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={requestPermissionAndLoad}
+              className="h-7 text-xs"
+            >
+              Allow access
+            </Button>
+            <div className="my-1 border-t border-border/40" />
+            <p className={HELP_TEXT_CLASSES}>Or type a family name:</p>
+            <ManualFamilyInput initialValue={currentFamily ?? ""} onApply={handleApply} />
+          </>
+        ) : (
+          <>
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground/70" />
+              <Input
+                autoFocus
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search installed fonts"
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
+            <div className="-mx-1 max-h-72 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {filteredFamilies.length === 0 ? (
+                <p className={cn(HELP_TEXT_CLASSES, "px-2 py-2")}>
+                  No fonts match "{searchQuery}".
                 </p>
-                <ManualFamilyInput initialValue={currentFamily ?? ""} onApply={handleApply} />
-              </>
-            ) : state.kind === "denied" ? (
-              <>
-                <p className={HELP_TEXT_CLASSES}>
-                  Permission denied. Re-allow in browser site settings, or type a family name.
-                </p>
-                <ManualFamilyInput initialValue={currentFamily ?? ""} onApply={handleApply} />
-              </>
-            ) : state.kind === "prompt" ? (
-              <>
-                <p className={HELP_TEXT_CLASSES}>
-                  Allow localterm to read your installed fonts to preview them.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={requestPermissionAndLoad}
-                  className="h-7 text-xs"
-                >
-                  Allow access
-                </Button>
-                <div className="my-1 border-t border-border/40" />
-                <p className={HELP_TEXT_CLASSES}>Or type a family name:</p>
-                <ManualFamilyInput initialValue={currentFamily ?? ""} onApply={handleApply} />
-              </>
-            ) : (
-              <>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground/70" />
-                  <Input
-                    autoFocus
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search installed fonts"
-                    className="h-8 pl-7 text-xs"
-                  />
-                </div>
-                <div className="-mx-1 max-h-72 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {filteredFamilies.length === 0 ? (
-                    <p className={cn(HELP_TEXT_CLASSES, "px-2 py-2")}>
-                      No fonts match "{searchQuery}".
-                    </p>
-                  ) : (
-                    filteredFamilies.map((family) => (
-                      <button
-                        key={family}
-                        type="button"
-                        onClick={() => handleApply(family)}
-                        className={cn(
-                          ROW_BASE_CLASSES,
-                          family === currentFamily && "bg-foreground/5",
-                        )}
-                        style={{
-                          ...ROW_STYLE,
-                          fontFamily: `"${escapeCssFontFamily(family)}", ui-monospace, monospace`,
-                        }}
-                      >
-                        <span className="truncate">{family}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-                <p className={cn(HELP_TEXT_CLASSES, "px-1 tabular-nums")}>
-                  {deferredQuery
-                    ? `${filteredFamilies.length} of ${state.families.length}`
-                    : `${state.families.length} fonts`}
-                </p>
-              </>
-            )}
-          </PopoverPrimitive.Popup>
-        </PopoverPrimitive.Positioner>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+              ) : (
+                filteredFamilies.map((family) => (
+                  <button
+                    key={family}
+                    type="button"
+                    onClick={() => handleApply(family)}
+                    className={cn(ROW_BASE_CLASSES, family === currentFamily && "bg-foreground/5")}
+                    style={{
+                      ...ROW_STYLE,
+                      fontFamily: `"${escapeCssFontFamily(family)}", ui-monospace, monospace`,
+                    }}
+                  >
+                    <span className="truncate">{family}</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <p className={cn(HELP_TEXT_CLASSES, "px-1 tabular-nums")}>
+              {deferredQuery
+                ? `${filteredFamilies.length} of ${state.families.length}`
+                : `${state.families.length} fonts`}
+            </p>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -17,10 +17,18 @@ export const runStop = async (): Promise<void> => {
     console.log(kleur.dim("stale pid file removed."));
     return;
   }
-  const isOurDaemon = await verifyPidIsLocalterm(pid);
-  if (!isOurDaemon) {
+  const verification = await verifyPidIsLocalterm(pid);
+  if (verification === "not-ours") {
     reportCliError(cliError.pidNotOurs(pid));
     clearPid();
+    return;
+  }
+  if (verification === "unknown") {
+    console.warn(
+      kleur.yellow(
+        `could not verify pid ${pid}; refusing to signal it. Run 'kill ${pid}' manually if needed.`,
+      ),
+    );
     return;
   }
 

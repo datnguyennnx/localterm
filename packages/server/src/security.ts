@@ -9,6 +9,7 @@ const stripPort = (hostHeader: string | undefined): string | null => {
     const end = trimmed.indexOf("]");
     return end === -1 ? trimmed : trimmed.slice(0, end + 1);
   }
+  if (trimmed.includes(":") && !trimmed.includes(".")) return `[${trimmed}]`;
   const colon = trimmed.lastIndexOf(":");
   if (colon === -1) return trimmed;
   return trimmed.slice(0, colon);
@@ -31,7 +32,10 @@ const isLoopback = (hostname: string | null): boolean => {
   return false;
 };
 
-export const isLoopbackHost = (host: string): boolean => isLoopback(host);
+const normalizeBareIpv6 = (host: string): string =>
+  host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+
+export const isLoopbackHost = (host: string): boolean => isLoopback(normalizeBareIpv6(host));
 
 export const enforceLoopback = (context: Context): Response | null => {
   const hostHeader = context.req.header("host");

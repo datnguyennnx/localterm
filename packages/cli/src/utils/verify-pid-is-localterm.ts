@@ -5,6 +5,8 @@ import { DAEMON_PROCESS_TITLE, VERIFY_PID_TIMEOUT_MS } from "../constants.js";
 
 const execFileAsync = promisify(execFile);
 
+export type PidVerification = "ours" | "not-ours" | "unknown";
+
 const readProcessComm = async (pid: number): Promise<string | null> => {
   if (process.platform === "linux") {
     try {
@@ -27,9 +29,11 @@ const readProcessComm = async (pid: number): Promise<string | null> => {
   return null;
 };
 
-export const verifyPidIsLocalterm = async (pid: number): Promise<boolean> => {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  const comm = await readProcessComm(pid);
-  if (comm === null) return false;
-  return comm === DAEMON_PROCESS_TITLE;
+export const classifyPid = (pid: number, comm: string | null): PidVerification => {
+  if (!Number.isInteger(pid) || pid <= 0) return "not-ours";
+  if (comm === null) return "unknown";
+  return comm === DAEMON_PROCESS_TITLE ? "ours" : "not-ours";
 };
+
+export const verifyPidIsLocalterm = async (pid: number): Promise<PidVerification> =>
+  classifyPid(pid, await readProcessComm(pid));
