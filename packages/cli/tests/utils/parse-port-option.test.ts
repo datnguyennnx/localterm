@@ -7,8 +7,8 @@ describe("parsePortOption", () => {
     expect(parsePortOption("3417")).toBe(3417);
   });
 
-  it("accepts the boundary ports", () => {
-    expect(parsePortOption("0")).toBe(0);
+  it("accepts the valid boundary ports", () => {
+    expect(parsePortOption("1")).toBe(1);
     expect(parsePortOption("65535")).toBe(65535);
   });
 
@@ -19,6 +19,7 @@ describe("parsePortOption", () => {
   });
 
   it("rejects negative ports", () => {
+    expect(() => parsePortOption("0")).toThrow(InvalidArgumentError);
     expect(() => parsePortOption("-1")).toThrow(InvalidArgumentError);
   });
 

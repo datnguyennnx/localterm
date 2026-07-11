@@ -10,6 +10,8 @@ export const COLORTERM_VALUE = "truecolor";
 export const TITLE_POLL_INTERVAL_MS = 500;
 export const CWD_RESOLVE_TIMEOUT_MS = 250;
 export const CWD_RESOLVE_BACKOFF_MS = 30_000;
+export const CWD_RESOLVE_COOLDOWN_MS = 5_000;
+export const MAX_PENDING_PARSE_BYTES = 4 * 1024;
 export const TITLE_MAX_PATH_SEGMENTS = 3;
 export const TITLE_TRUNCATION_PREFIX = "…";
 
@@ -45,6 +47,8 @@ export const MAX_TITLE_LENGTH = 4 * 1024;
 export const MAX_COLS = 1000;
 export const MAX_ROWS = 1000;
 export const MAX_CONCURRENT_SESSIONS = 64;
+export const OUTPUT_BATCH_WINDOW_MS = 2;
+export const OUTPUT_BATCH_MAX_BYTES = 64 * 1024;
 // High/low water marks gate the PTY -> WS pipe instead of killing the socket.
 // Crossing the high water mark pauses the PTY so the OS pipe absorbs further
 // child output until the WS drains below the low water mark, at which point
@@ -63,6 +67,7 @@ export const WS_BACKPRESSURE_THRESHOLD_BYTES = 64 * 1024 * 1024;
 // trips its own write error and shows "Shell ended" with no idea why.
 export const WS_HEARTBEAT_INTERVAL_MS = 20_000;
 export const WS_HEARTBEAT_TIMEOUT_MS = 60_000;
+export const WS_HEARTBEAT_GRACE_MS = 15_000;
 // Hard ceiling for server.stop() — clients get terminated, then the http
 // server is given this long to actually close before we resolve anyway. Keeps
 // the daemon's SIGTERM path bounded so the CLI's force-exit fallback never
@@ -75,6 +80,7 @@ export const LOOPBACK_HOSTS = new Set([
   "::1",
   "[::1]",
   "0:0:0:0:0:0:0:1",
+  "[0:0:0:0:0:0:0:1]",
 ]);
 
 export const HTTP_STATUS_NOT_FOUND = 404;

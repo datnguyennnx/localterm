@@ -5,6 +5,7 @@ import { spawn, type IPty } from "node-pty";
 import {
   COLORTERM_VALUE,
   CWD_RESOLVE_BACKOFF_MS,
+  CWD_RESOLVE_COOLDOWN_MS,
   DEFAULT_COLS,
   DEFAULT_ROWS,
   PTY_ENV_DENYLIST,
@@ -18,6 +19,7 @@ import {
 // output mode and any byte landing inside that frame breaks the parser state).
 import { ensureSpawnHelperExecutable } from "./ensure-spawn-helper-executable.js";
 import { getDefaultShell } from "./default-shell.js";
+import { Osc7ChunkParser } from "./osc7-chunk-parser.js";
 import type { SpawnPtyInput } from "./types.js";
 import { formatWorkingDirectoryTitle } from "./utils/format-working-directory-title.js";
 import { resolveCwdForPid } from "./utils/resolve-cwd-for-pid.js";
@@ -44,6 +46,8 @@ export class Session extends EventEmitter<SessionEvents> {
   private lastEmittedTitle = "";
   private lastEmittedCwd = "";
   private nextCwdResolveAt = 0;
+  private osc7Detected = false;
+  private readonly osc7ChunkParser = new Osc7ChunkParser();
 
   constructor(input: SpawnPtyInput) {
     super();
@@ -78,6 +82,7 @@ export class Session extends EventEmitter<SessionEvents> {
     });
 
     this.pty.onData((data) => {
+      this.onPtyOutput(data);
       this.emit("output", data);
     });
 
@@ -177,7 +182,19 @@ export class Session extends EventEmitter<SessionEvents> {
     this.kill();
     this.exited = true;
     this.stopTitlePolling();
+    this.osc7ChunkParser.reset();
     this.removeAllListeners();
+  }
+
+  private onPtyOutput(data: string): void {
+    const osc7Path = this.osc7ChunkParser.push(data);
+    if (osc7Path) {
+      this.osc7Detected = true;
+      if (osc7Path !== this.lastEmittedCwd) {
+        this.lastEmittedCwd = osc7Path;
+        this.emit("cwd", osc7Path);
+      }
+    }
   }
 
   private scheduleTitlePoll(delayMs: number): void {
@@ -191,9 +208,9 @@ export class Session extends EventEmitter<SessionEvents> {
   private async runTitlePoll(): Promise<void> {
     if (this.exited) return;
     try {
-      const liveCwd = await this.resolveLiveCwd();
+      const liveCwd = this.osc7Detected ? this.lastEmittedCwd || null : await this.resolveLiveCwd();
       if (this.exited) return;
-      if (liveCwd && liveCwd !== this.lastEmittedCwd) {
+      if (!this.osc7Detected && liveCwd && liveCwd !== this.lastEmittedCwd) {
         this.lastEmittedCwd = liveCwd;
         this.emit("cwd", liveCwd);
       }
@@ -219,11 +236,8 @@ export class Session extends EventEmitter<SessionEvents> {
     const now = Date.now();
     if (now < this.nextCwdResolveAt) return null;
     const liveCwd = await resolveCwdForPid(this.pid).catch(() => null);
-    if (liveCwd === null) {
-      this.nextCwdResolveAt = now + CWD_RESOLVE_BACKOFF_MS;
-    } else {
-      this.nextCwdResolveAt = 0;
-    }
+    this.nextCwdResolveAt =
+      now + (liveCwd === null ? CWD_RESOLVE_BACKOFF_MS : CWD_RESOLVE_COOLDOWN_MS);
     return liveCwd;
   }
 

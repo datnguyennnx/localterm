@@ -14,6 +14,7 @@ describe("isLoopbackHost", () => {
     expect(isLoopbackHost("127.0.0.1")).toBe(true);
     expect(isLoopbackHost("localhost")).toBe(true);
     expect(isLoopbackHost("::1")).toBe(true);
+    expect(isLoopbackHost("0:0:0:0:0:0:0:1")).toBe(true);
   });
 
   it("accepts *.localhost (RFC 6761, always resolves to loopback)", () => {
@@ -38,6 +39,11 @@ describe("loopbackMiddleware", () => {
 
   it("allows IPv6 loopback", async () => {
     const response = await probe({ host: "[::1]:3417" });
+    expect(response.status).toBe(200);
+  });
+
+  it("allows a bare IPv6 loopback Host header", async () => {
+    const response = await probe({ host: "::1" });
     expect(response.status).toBe(200);
   });
 

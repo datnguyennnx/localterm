@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { pollForDaemonReady } from "../../src/utils/poll-for-daemon-ready.js";
 
+const noopSleep = (): Promise<void> => Promise.resolve();
+const neverHealthy = (): Promise<boolean> => Promise.resolve(false);
+
 const STANDARD_OPTIONS = {
   childPid: 12345,
   intervalMs: 10,
   maxWaitMs: 100,
   logPath: "/tmp/localterm.log",
+  readPid: () => 12345,
+  probeHealth: neverHealthy,
 };
-
-const noopSleep = (): Promise<void> => Promise.resolve();
 
 describe("pollForDaemonReady", () => {
   it("resolves with the new port once a different value appears", async () => {
@@ -102,9 +105,35 @@ describe("pollForDaemonReady", () => {
       maxWaitMs: 100,
       logPath: "/tmp/localterm.log",
       isAlive: () => true,
+      readPid: () => 1,
       readPort: () => null,
       sleep: sleepSpy,
     });
     expect(sleepSpy).toHaveBeenCalledTimes(10);
+  });
+
+  it("accepts a healthy same-port daemon only when state belongs to the spawned child", async () => {
+    const result = await pollForDaemonReady({
+      ...STANDARD_OPTIONS,
+      initialPort: 3417,
+      isAlive: () => true,
+      readPort: () => 3417,
+      sleep: noopSleep,
+      probeHealth: () => Promise.resolve(true),
+    });
+    expect(result).toEqual({ ok: true, port: 3417 });
+  });
+
+  it("rejects healthy same-port state owned by another pid", async () => {
+    const result = await pollForDaemonReady({
+      ...STANDARD_OPTIONS,
+      initialPort: 3417,
+      isAlive: () => true,
+      readPid: () => 99999,
+      readPort: () => 3417,
+      sleep: noopSleep,
+      probeHealth: () => Promise.resolve(true),
+    });
+    expect(result.ok).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import { isLoopbackHost } from "localterm-server";
 import kleur from "kleur";
 import { DAEMON_PROBE_INTERVAL_MS, DAEMON_PROBE_MAX_WAIT_MS } from "../constants.js";
 import { cliError, exitCodeForCliError } from "../errors.js";
-import { ensureLogFile, isAlive, readPort } from "../state.js";
+import { ensureLogFile, isAlive, readPid, readPort } from "../state.js";
 import { buildDaemonStartArgs } from "../utils/build-daemon-args.js";
 import { pollForDaemonReady } from "../utils/poll-for-daemon-ready.js";
 import { reportCliError } from "../utils/report-cli-error.js";
@@ -45,6 +45,7 @@ export const runRestart = async (options: RestartOptions): Promise<void> => {
     maxWaitMs: DAEMON_PROBE_MAX_WAIT_MS,
     logPath,
     isAlive,
+    readPid,
     readPort,
     sleep,
   });

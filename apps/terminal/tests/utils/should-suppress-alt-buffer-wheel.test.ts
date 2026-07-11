@@ -4,11 +4,16 @@ import { shouldSuppressAltBufferWheel } from "../../src/utils/should-suppress-al
 
 interface FakeTerminalOptions {
   bufferType: "normal" | "alternate";
+  mouseTrackingMode?: "none" | "x10";
 }
 
-const createFakeTerminal = ({ bufferType }: FakeTerminalOptions): XtermTerminal =>
+const createFakeTerminal = ({
+  bufferType,
+  mouseTrackingMode = "none",
+}: FakeTerminalOptions): XtermTerminal =>
   ({
     buffer: { active: { type: bufferType } },
+    modes: { mouseTrackingMode },
   }) as unknown as XtermTerminal;
 
 const createWheelEvent = (deltaMode: number): WheelEvent => ({ deltaMode }) as WheelEvent;
@@ -23,6 +28,12 @@ describe("shouldSuppressAltBufferWheel", () => {
   it("lets line-delta wheels through in the alt buffer (clicky mouse)", () => {
     const terminal = createFakeTerminal({ bufferType: "alternate" });
     const event = createWheelEvent(WheelEvent.DOM_DELTA_LINE);
+    expect(shouldSuppressAltBufferWheel(event, terminal)).toBe(false);
+  });
+
+  it("lets pixel-delta wheels through when alternate-buffer mouse tracking is active", () => {
+    const terminal = createFakeTerminal({ bufferType: "alternate", mouseTrackingMode: "x10" });
+    const event = createWheelEvent(WheelEvent.DOM_DELTA_PIXEL);
     expect(shouldSuppressAltBufferWheel(event, terminal)).toBe(false);
   });
 

@@ -9,6 +9,7 @@
   "scripts": {
     "postinstall": "node scripts/fix-node-pty.mjs",
     "build": "turbo run build",
+    "benchmark:output": "node scripts/benchmark-output-pipeline.mjs",
     "dev": "turbo run dev --parallel",
     "start": "node packages/cli/bin/localterm.mjs stop && node packages/cli/bin/localterm.mjs start",
     "cli": "node packages/cli/bin/localterm.mjs",
@@ -47,6 +48,9 @@
     ],
     "overrides": {
       "vite": "npm:@voidzero-dev/vite-plus-core"
+    },
+    "patchedDependencies": {
+      "@xterm/addon-webgl@0.20.0-beta.286": "patches/@xterm__addon-webgl@0.20.0-beta.286.patch"
     }
   }
 }

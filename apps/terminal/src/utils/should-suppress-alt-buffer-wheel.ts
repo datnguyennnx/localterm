@@ -19,5 +19,6 @@ export const shouldSuppressAltBufferWheel = (
   terminal: XtermTerminal,
 ): boolean => {
   if (terminal.buffer.active.type !== "alternate") return false;
+  if (terminal.modes.mouseTrackingMode !== "none") return false;
   return event.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
 };

@@ -14,7 +14,6 @@ import {
   WS_CLOSE_CAPACITY_REACHED,
   WS_CLOSE_POLICY_VIOLATION,
   WS_HEARTBEAT_INTERVAL_MS,
-  WS_HEARTBEAT_TIMEOUT_MS,
   WS_OUTBOUND_DRAIN_POLL_MS,
   WS_OUTBOUND_PAUSE_HIGH_WATER_BYTES,
   WS_OUTBOUND_RESUME_LOW_WATER_BYTES,
@@ -23,10 +22,12 @@ import {
 import { ServerErrorException, serverError } from "./errors.js";
 import { clientToServerMessageSchema } from "./schemas.js";
 import { enforceLoopback, isLoopbackHost, loopbackMiddleware } from "./security.js";
+import { OutputBatcher } from "./output-batcher.js";
 import { Session } from "./session.js";
 import { SessionRegistry } from "./session-registry.js";
 import { resolveStaticAsset } from "./static-resolver.js";
 import type { ServerToClientMessage } from "./types.js";
+import { getHeartbeatAction } from "./utils/get-heartbeat-action.js";
 
 export interface ServerOptions {
   port?: number;
@@ -43,10 +44,12 @@ export interface RunningServer {
 
 interface BroadcastSocket {
   readyState: number;
-  send: (raw: string) => void;
+  send: (raw: string | ArrayBuffer) => void;
   close: (code?: number, reason?: string) => void;
   raw?: unknown;
 }
+
+const REVALIDATED_STATIC_PATHS = new Set(["/sw.js", "/manifest.webmanifest"]);
 
 const getRawBufferedAmount = (raw: unknown): number => {
   if (!raw || typeof raw !== "object") return 0;
@@ -81,17 +84,21 @@ const onRawEvent = (raw: unknown, event: "pong", listener: () => void): (() => v
   };
 };
 
-const safeSend = (ws: BroadcastSocket, payload: ServerToClientMessage) => {
+const safeSendRaw = (ws: BroadcastSocket, payload: string | ArrayBuffer): void => {
   if (ws.readyState !== WS_READY_STATE_OPEN) return;
   if (getRawBufferedAmount(ws.raw) > WS_BACKPRESSURE_THRESHOLD_BYTES) {
     ws.close(WS_CLOSE_BACKPRESSURE, "backpressure");
     return;
   }
   try {
-    ws.send(JSON.stringify(payload));
+    ws.send(payload);
   } catch {
     /* socket closed between readyState check and send */
   }
+};
+
+const safeSend = (ws: BroadcastSocket, payload: ServerToClientMessage): void => {
+  safeSendRaw(ws, JSON.stringify(payload));
 };
 
 export const createServer = async (options: ServerOptions = {}): Promise<RunningServer> => {
@@ -126,6 +133,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
       let drainPollTimer: NodeJS.Timeout | null = null;
       let heartbeatTimer: NodeJS.Timeout | null = null;
       let stopHeartbeat: (() => void) | null = null;
+      let outputBatcher: OutputBatcher | null = null;
 
       const stopDrainPoll = () => {
         if (drainPollTimer === null) return;
@@ -172,16 +180,26 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           // no pongs ever observed and kill healthy connections after the
           // first idle window.
           let lastPongAt = Date.now();
+          let pendingPingAt = 0;
           stopHeartbeat = onRawEvent(ws.raw, "pong", () => {
             lastPongAt = Date.now();
+            pendingPingAt = 0;
           });
           if (stopHeartbeat) {
             heartbeatTimer = setInterval(() => {
               if (ws.readyState !== WS_READY_STATE_OPEN) return;
-              const idleMs = Date.now() - lastPongAt;
-              if (idleMs > WS_HEARTBEAT_TIMEOUT_MS) {
+              const now = Date.now();
+              const idleMs = now - lastPongAt;
+              const heartbeatAction = getHeartbeatAction(now, lastPongAt, pendingPingAt);
+              if (heartbeatAction === "wait") return;
+              if (heartbeatAction === "grace-ping") {
+                pendingPingAt = now;
+                callRawMethod(ws.raw, "ping");
+                return;
+              }
+              if (heartbeatAction === "terminate") {
                 console.warn(
-                  `ws heartbeat timeout: no pong for ${idleMs}ms (pid ${newSession.pid}); terminating`,
+                  `ws heartbeat timeout: no pong for ${idleMs}ms (grace ${now - pendingPingAt}ms, pid ${newSession.pid}); terminating`,
                 );
                 stopHeartbeatChecks();
                 if (!callRawMethod(ws.raw, "terminate")) ws.close();
@@ -217,8 +235,8 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           // Wire listeners BEFORE the first safeSend so any synchronous emit
           // from Session (current or future) reaches the client. Today
           // node-pty's data/exit are async, but this guards against drift.
-          const onOutput = (data: string) => {
-            safeSend(ws, { type: "output", data });
+          outputBatcher = new OutputBatcher((output) => {
+            safeSendRaw(ws, output.buffer);
             if (
               !newSession.isPaused &&
               getRawBufferedAmount(ws.raw) >= WS_OUTBOUND_PAUSE_HIGH_WATER_BYTES
@@ -226,10 +244,14 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
               newSession.pause();
               ensureDrainPoll();
             }
-          };
+          });
+          const onOutput = (data: string) => outputBatcher?.push(data);
           const onTitle = (title: string) => safeSend(ws, { type: "title", title });
           const onCwd = (cwd: string) => safeSend(ws, { type: "cwd", cwd });
           const onExit = (code: number | null) => {
+            outputBatcher?.flush();
+            outputBatcher?.dispose();
+            outputBatcher = null;
             stopDrainPoll();
             stopHeartbeatChecks();
             safeSend(ws, { type: "exit", code });
@@ -266,6 +288,8 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           }
         },
         onClose(event) {
+          outputBatcher?.dispose();
+          outputBatcher = null;
           stopDrainPoll();
           stopHeartbeatChecks();
           // Most "the terminal randomly died" reports are actually the WS
@@ -282,6 +306,8 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           session = null;
         },
         onError(event) {
+          outputBatcher?.dispose();
+          outputBatcher = null;
           stopDrainPoll();
           stopHeartbeatChecks();
           const errorValue =
@@ -307,14 +333,19 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
       }
       const asset = resolveStaticAsset(staticRoot, requestPath);
       if (!asset) return context.text("not found", HTTP_STATUS_NOT_FOUND);
+      const shouldRevalidate = REVALIDATED_STATIC_PATHS.has(requestPath);
       return new Response(new Uint8Array(asset.body), {
         status: asset.status,
-        headers: { "content-type": asset.contentType },
+        headers: {
+          "content-type": asset.contentType,
+          ...(shouldRevalidate ? { "cache-control": "no-cache" } : {}),
+        },
       });
     });
   }
 
   let httpServer: ServerType | null = null;
+  let actualPort = port;
   await new Promise<void>((resolve, reject) => {
     const handleError = (error: Error) => {
       reject(new ServerErrorException(serverError.listenFailed(host, port, error)));
@@ -326,6 +357,8 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
         port,
       },
       () => {
+        const address = node.address();
+        if (address && typeof address === "object") actualPort = address.port;
         node.removeListener("error", handleError);
         resolve();
       },
@@ -384,7 +417,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
     });
   };
 
-  return { port, host, registry, stop };
+  return { port: actualPort, host, registry, stop };
 };
 
 export type { Session } from "./session.js";

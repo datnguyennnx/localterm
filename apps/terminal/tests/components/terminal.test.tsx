@@ -4,6 +4,7 @@ import { Terminal } from "../../src/components/terminal";
 import {
   DEFAULT_TERMINAL_FONT_SIZE_PX,
   DEFAULT_TERMINAL_LINE_HEIGHT,
+  RESIZE_DEBOUNCE_MS,
   RESIZE_SCROLL_RESTORE_WINDOW_MS,
   TERMINAL_CURSOR_BLINK_STORAGE_KEY,
   TERMINAL_CURSOR_STYLE_STORAGE_KEY,
@@ -23,6 +24,7 @@ interface FakeWebSocketHandle {
   close: ReturnType<typeof vi.fn>;
   fireOpen: () => void;
   fireMessage: (payload: unknown) => void;
+  fireBinaryMessage: (payload: Uint8Array) => void;
   fireClose: (code?: number, reason?: string, wasClean?: boolean) => void;
   fireError: () => void;
 }
@@ -36,8 +38,10 @@ interface FakeCsiHandlerEntry {
 interface FakeXtermHandle {
   customKeyEventHandler: ((event: KeyboardEvent) => boolean) | null;
   customWheelEventHandler: ((event: WheelEvent) => boolean) | null;
+  fireResize: (cols: number, rows: number) => void;
   fireTitleChange: (title: string) => void;
   getOptions: () => Record<string, unknown>;
+  getUnicodeVersion: () => string;
   setBufferState: (state: { baseY: number; viewportY: number }) => void;
   scrollLines: ReturnType<typeof vi.fn>;
   scrollToBottom: ReturnType<typeof vi.fn>;
@@ -52,9 +56,19 @@ interface FakeSearchAddonHandle {
   fireResults: (results: { resultIndex: number; resultCount: number }) => void;
 }
 
+interface FakeResizeObserverHandle {
+  fire: () => void;
+}
+
+interface FakeAnimationFrameHandle {
+  callback: FrameRequestCallback;
+}
+
 const fakeWebSockets: FakeWebSocketHandle[] = [];
 const fakeXterms: FakeXtermHandle[] = [];
 const fakeSearchAddons: FakeSearchAddonHandle[] = [];
+const fakeResizeObservers: FakeResizeObserverHandle[] = [];
+const fakeAnimationFrames: FakeAnimationFrameHandle[] = [];
 
 const installFakeWebSocket = () => {
   class FakeWebSocket {
@@ -64,6 +78,7 @@ const installFakeWebSocket = () => {
     static readonly CLOSED = 3;
 
     readonly url: string;
+    binaryType: BinaryType = "blob";
     readyState: number = FakeWebSocket.CONNECTING;
     private listeners = new Map<string, Set<(event: unknown) => void>>();
 
@@ -84,6 +99,11 @@ const installFakeWebSocket = () => {
         },
         fireMessage: (payload) => {
           this.dispatch("message", { data: JSON.stringify(payload) });
+        },
+        fireBinaryMessage: (payload) => {
+          const data = new window.ArrayBuffer(payload.byteLength);
+          new Uint8Array(data).set(payload);
+          this.dispatch("message", { data });
         },
         fireClose: (code = 1006, reason = "", wasClean = false) => {
           this.readyState = FakeWebSocket.CLOSED;
@@ -119,8 +139,9 @@ vi.mock("@xterm/xterm", () => {
     buffer = { active: { baseY: 0, viewportY: 0 } };
     scrollLines = vi.fn();
     scrollToBottom = vi.fn();
-    write = vi.fn((_data: string, callback?: () => void) => callback?.());
+    write = vi.fn((_data: string | Uint8Array, callback?: () => void) => callback?.());
     private titleListeners = new Set<(title: string) => void>();
+    private resizeListeners = new Set<(size: { cols: number; rows: number }) => void>();
     private csiHandlers: FakeCsiHandlerEntry[] = [];
     private handle: FakeXtermHandle;
 
@@ -145,10 +166,16 @@ vi.mock("@xterm/xterm", () => {
       this.handle = {
         customKeyEventHandler: null,
         customWheelEventHandler: null,
+        fireResize: (cols, rows) => {
+          this.cols = cols;
+          this.rows = rows;
+          for (const listener of this.resizeListeners) listener({ cols, rows });
+        },
         fireTitleChange: (title: string) => {
           for (const listener of this.titleListeners) listener(title);
         },
         getOptions: () => this.options,
+        getUnicodeVersion: () => this.unicode.activeVersion,
         setBufferState: ({ baseY, viewportY }) => {
           this.buffer = { active: { baseY, viewportY } };
         },
@@ -170,10 +197,15 @@ vi.mock("@xterm/xterm", () => {
       fakeXterms.push(this.handle);
     }
 
-    loadAddon = () => {};
+    loadAddon = (addon: { activate?: (terminal: FakeXtermTerminal) => void }) => {
+      addon.activate?.(this);
+    };
     open = () => {};
     onData = () => {};
-    onResize = () => ({ dispose: () => {} });
+    onResize = (handler: (size: { cols: number; rows: number }) => void) => {
+      this.resizeListeners.add(handler);
+      return { dispose: () => this.resizeListeners.delete(handler) };
+    };
     onScroll = () => ({ dispose: () => {} });
     onWriteParsed = () => ({ dispose: () => {} });
     onTitleChange = (handler: (title: string) => void) => {
@@ -206,7 +238,11 @@ vi.mock("@xterm/addon-clipboard", () => {
 });
 
 vi.mock("@xterm/addon-unicode-graphemes", () => {
-  class FakeUnicodeGraphemesAddon {}
+  class FakeUnicodeGraphemesAddon {
+    activate = (terminal: { unicode: { activeVersion: string } }) => {
+      terminal.unicode.activeVersion = "15-graphemes";
+    };
+  }
   return { UnicodeGraphemesAddon: FakeUnicodeGraphemesAddon };
 });
 
@@ -218,6 +254,7 @@ vi.mock("@xterm/addon-web-links", () => {
 vi.mock("@xterm/addon-webgl", () => {
   class FakeWebglAddon {
     onContextLoss = () => {};
+    clearTextureAtlas = () => {};
     dispose = () => {};
   }
   return { WebglAddon: FakeWebglAddon };
@@ -268,13 +305,22 @@ const stubBrowserGlobals = () => {
     configurable: true,
     value: { load: () => Promise.resolve([]) },
   });
-  if (typeof globalThis.ResizeObserver === "undefined") {
-    globalThis.ResizeObserver = class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    } as unknown as typeof ResizeObserver;
-  }
+  globalThis.ResizeObserver = class {
+    constructor(callback: ResizeObserverCallback) {
+      fakeResizeObservers.push({ fire: () => callback([], this) });
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+  vi.stubGlobal(
+    "requestAnimationFrame",
+    vi.fn((callback: FrameRequestCallback) => {
+      fakeAnimationFrames.push({ callback });
+      return fakeAnimationFrames.length;
+    }),
+  );
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
 };
 
 const dispatchFindShortcut = (handle: FakeXtermHandle | undefined): boolean | undefined => {
@@ -290,6 +336,8 @@ beforeEach(() => {
   fakeWebSockets.length = 0;
   fakeXterms.length = 0;
   fakeSearchAddons.length = 0;
+  fakeResizeObservers.length = 0;
+  fakeAnimationFrames.length = 0;
   stubBrowserGlobals();
   installFakeWebSocket();
   Object.defineProperty(navigator, "platform", { configurable: true, value: "MacIntel" });
@@ -304,6 +352,104 @@ afterEach(() => {
   Object.defineProperty(navigator, "platform", {
     configurable: true,
     value: originalNavigatorPlatform,
+  });
+});
+
+describe("Terminal renderer correctness", () => {
+  it("keeps the grapheme-aware Unicode provider active", () => {
+    render(<Terminal />);
+    expect(fakeXterms[0]?.getUnicodeVersion()).toBe("15-graphemes");
+  });
+
+  it("reserves safe-area insets around the terminal viewport", () => {
+    render(<Terminal />);
+    const terminalContainer = screen.getByLabelText("terminal session");
+    const root = terminalContainer.parentElement?.parentElement;
+    if (!root) throw new Error("terminal root not rendered");
+
+    expect(root.className).toContain("pt-[env(safe-area-inset-top)]");
+    expect(root.className).toContain("pr-[env(safe-area-inset-right)]");
+    expect(root.className).toContain("pb-[env(safe-area-inset-bottom)]");
+    expect(root.className).toContain("pl-[env(safe-area-inset-left)]");
+  });
+
+  it("bounds the search overlay to a narrow viewport", () => {
+    render(<Terminal />);
+    act(() => {
+      dispatchFindShortcut(fakeXterms[0]);
+    });
+
+    expect(screen.getByRole("search").className).toContain("w-[min(20rem,calc(100vw-1.5rem))]");
+  });
+
+  it("does not send a duplicate resize after a container fit", () => {
+    render(<Terminal />);
+    const socket = fakeWebSockets[0];
+    if (!socket) throw new Error("websocket not constructed");
+
+    act(() => {
+      socket.fireOpen();
+    });
+    socket.send.mockClear();
+
+    act(() => {
+      fakeResizeObservers[0]?.fire();
+      vi.advanceTimersByTime(RESIZE_DEBOUNCE_MS);
+    });
+
+    expect(socket.send).not.toHaveBeenCalled();
+  });
+
+  it("sends every exact xterm column and row resize", () => {
+    render(<Terminal />);
+    const socket = fakeWebSockets[0];
+    const terminal = fakeXterms[0];
+    if (!socket || !terminal) throw new Error("terminal transport was not constructed");
+    act(() => {
+      socket.fireOpen();
+    });
+    socket.send.mockClear();
+
+    act(() => {
+      terminal.fireResize(73, 19);
+      terminal.fireResize(73, 20);
+    });
+
+    expect(socket.send.mock.calls.map(([payload]) => JSON.parse(payload))).toEqual([
+      { type: "resize", cols: 73, rows: 19 },
+      { type: "resize", cols: 73, rows: 20 },
+    ]);
+  });
+
+  it("replays the resize scroll anchor on the next animation frame", () => {
+    render(<Terminal />);
+    const terminal = fakeXterms[0];
+    const animationFrame = fakeAnimationFrames[0];
+    if (!terminal || !animationFrame) throw new Error("terminal did not schedule resize restore");
+    terminal.scrollToBottom.mockClear();
+    terminal.setBufferState({ baseY: 80, viewportY: 0 });
+
+    act(() => {
+      animationFrame.callback(performance.now());
+    });
+
+    expect(terminal.scrollToBottom).toHaveBeenCalledOnce();
+  });
+
+  it("writes binary UTF-8 output directly to xterm", () => {
+    render(<Terminal />);
+    const terminal = fakeXterms[0];
+    if (!terminal) throw new Error("xterm not constructed");
+    const output = new TextEncoder().encode("hello 😀");
+
+    act(() => {
+      fakeWebSockets[0]?.fireBinaryMessage(output);
+    });
+
+    const writtenOutput = terminal.write.mock.calls.at(-1)?.[0];
+    expect(writtenOutput).toBeInstanceOf(Uint8Array);
+    if (!(writtenOutput instanceof Uint8Array)) throw new Error("expected binary xterm write");
+    expect(new TextDecoder().decode(writtenOutput)).toBe("hello 😀");
   });
 });
 

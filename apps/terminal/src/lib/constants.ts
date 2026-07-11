@@ -41,6 +41,9 @@ export const KEYBOARD_MODIFIER_SHIFT_BIT = 1;
 export const KEYBOARD_MODIFIER_ALT_BIT = 2;
 export const KEYBOARD_MODIFIER_CTRL_BIT = 4;
 export const KEYBOARD_MODIFIER_META_BIT = 8;
+export const TERMINAL_TAP_MOVEMENT_THRESHOLD_PX = 10;
+export const TERMINAL_KEYBOARD_HIDE_VIEWPORT_GROWTH_PX = 150;
+export const TERMINAL_VIEWPORT_WIDTH_STABLE_PX = 20;
 // Kitty keyboard protocol "Disambiguate escape codes" flag (bit 0). Active means
 // modifier+key combos must be reported as `CSI <keycode>;<mods+1> u` instead of
 // the legacy bare control byte (which can't distinguish e.g. Enter vs Shift+Enter).
