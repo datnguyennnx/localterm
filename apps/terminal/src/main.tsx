@@ -22,7 +22,17 @@ registerServiceWorker();
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 
-createRoot(rootElement).render(
+createRoot(rootElement, {
+  onCaughtError(error, info) {
+    console.error("[localterm] React caught error:", error, info);
+  },
+  onUncaughtError(error, errorInfo) {
+    console.error("[localterm] React uncaught error:", error, errorInfo);
+  },
+  onRecoverableError(error, errorInfo) {
+    console.error("[localterm] React recoverable error:", error, errorInfo);
+  },
+}).render(
   <StrictMode>
     <TooltipProvider delay={TOOLTIP_DELAY_MS}>
       <App />

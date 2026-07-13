@@ -7,6 +7,7 @@ export interface SpawnPtyInput {
   shell?: string;
   cwd?: string;
   env?: Record<string, string>;
+  mode?: "human" | "agent";
 }
 
 export type ClientToServerMessage = z.infer<typeof clientToServerMessageSchema>;

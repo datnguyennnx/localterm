@@ -15,6 +15,8 @@ export interface RestartOptions {
   port: number;
   host: string;
   open: boolean;
+  yolo?: boolean;
+  maxSessions?: number;
 }
 
 export const runRestart = async (options: RestartOptions): Promise<void> => {

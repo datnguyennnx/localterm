@@ -1127,7 +1127,7 @@ describe("Terminal scroll preservation through hot-swaps", () => {
       fakeWebSockets[0]?.fireMessage({ type: "output", data: "replayed transcript" });
     });
 
-    expect(handle.write).toHaveBeenCalledWith("replayed transcript", expect.any(Function));
+    expect(handle.write).toHaveBeenCalledWith("replayed transcript");
     expect(handle.scrollToBottom).toHaveBeenCalled();
   });
 

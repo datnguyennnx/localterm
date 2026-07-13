@@ -183,6 +183,20 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const openSearchOverlayRef = useRef<(() => void) | null>(null);
+
+  // Watermark backpressure using xterm.js write-callback counting pattern.
+  // terminal.write() call — that's expensive — instead we batch callbacks at
+  // CALLBACK_BYTE_LIMIT intervals per the guide's recommended design.
+  const FLOW_CALLBACK_BYTE_LIMIT = 131072; // 128KB — attach callback this often
+  const FLOW_HIGH_WATER_CALLBACKS = 4;      // ~512KB pending → pause
+  const FLOW_LOW_WATER_CALLBACKS = 1;       // ~128KB pending → resume
+
+  const writtenSinceLastCallbackRef = useRef(0);
+  const pendingCallbacksRef = useRef(0);
+  const isFlowPausedRef = useRef(false);
+  const estimateBytes = (data: string | Uint8Array): number =>
+    typeof data === "string" ? data.length : data.byteLength;
+
   const [exitInfo, setExitInfo] = useState<ExitInfo | null>(null);
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   const [hasCopiedRestartCommand, setHasCopiedRestartCommand] = useState(false);
@@ -539,6 +553,39 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       if (outputScrollAnchor.wasAtBottom) restoreTerminalScrollAnchor(terminal, outputScrollAnchor);
     };
 
+
+    const flowControlledWrite = (data: string | Uint8Array) => {
+      if (exited || !terminal) return;
+      const outputScrollAnchor = captureTerminalScrollAnchor(terminal);
+      const byteLength = estimateBytes(data);
+      const prevWritten = writtenSinceLastCallbackRef.current;
+      writtenSinceLastCallbackRef.current += byteLength;
+
+      // Check watermark and signal server to pause PTY if too many callbacks pending.
+      if (!isFlowPausedRef.current && pendingCallbacksRef.current >= FLOW_HIGH_WATER_CALLBACKS) {
+        send({ type: "flow-pause" });
+        isFlowPausedRef.current = true;
+      }
+
+      if (prevWritten < FLOW_CALLBACK_BYTE_LIMIT && writtenSinceLastCallbackRef.current >= FLOW_CALLBACK_BYTE_LIMIT) {
+
+        terminal.write(data, () => {
+          pendingCallbacksRef.current = Math.max(0, pendingCallbacksRef.current - 1);
+          if (isFlowPausedRef.current && pendingCallbacksRef.current < FLOW_LOW_WATER_CALLBACKS) {
+            send({ type: "flow-resume" });
+            isFlowPausedRef.current = false;
+          }
+          restoreAfterOutputWrite(outputScrollAnchor);
+        });
+        pendingCallbacksRef.current++;
+        writtenSinceLastCallbackRef.current = 0;
+      } else {
+
+        terminal.write(data);
+        restoreAfterOutputWrite(outputScrollAnchor);
+      }
+    };
+
     const beginResizeScrollRestore = (anchor: TerminalScrollAnchor) => {
       clearResizeScrollRestore();
       const timer = window.setTimeout(() => {
@@ -668,6 +715,11 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     };
 
     const connect = () => {
+
+      writtenSinceLastCallbackRef.current = 0;
+      pendingCallbacksRef.current = 0;
+      isFlowPausedRef.current = false;
+
       if (disposed) return;
       const nextSocket = new WebSocket(buildWebSocketUrl(liveCwdRef.current));
       nextSocket.binaryType = "arraybuffer";
@@ -683,10 +735,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
       nextSocket.addEventListener("message", (event) => {
         if (disposed || socket !== nextSocket) return;
         if (event.data instanceof ArrayBuffer) {
-          const outputScrollAnchor = captureTerminalScrollAnchor(terminal);
-          terminal.write(new Uint8Array(event.data), () =>
-            restoreAfterOutputWrite(outputScrollAnchor),
-          );
+          flowControlledWrite(new Uint8Array(event.data));
           noteOutputActivity();
           return;
         }
@@ -701,8 +750,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
         if (!parsed.success) return;
         const message = parsed.data;
         if (message.type === "output") {
-          const outputScrollAnchor = captureTerminalScrollAnchor(terminal);
-          terminal.write(message.data, () => restoreAfterOutputWrite(outputScrollAnchor));
+          flowControlledWrite(message.data);
           noteOutputActivity();
         } else if (message.type === "title") {
           applyIncomingTitle(message.title);

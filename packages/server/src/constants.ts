@@ -89,3 +89,26 @@ export const WS_READY_STATE_OPEN = 1;
 export const WS_CLOSE_POLICY_VIOLATION = 1008;
 export const WS_CLOSE_BACKPRESSURE = 4429;
 export const WS_CLOSE_CAPACITY_REACHED = 4503;
+
+/**
+ * Commands that are denied by default in agent-mode exec() unless the
+ * --yolo flag is passed at server start.  Matching is substring-based so
+ * "rm -rf /" is caught by "rm".  This is a safety net, not a security
+ * boundary — the loopback-only binding is the real security model.
+ */
+export const AGENT_COMMAND_DENYLIST = [
+  "rm",
+  "dd",
+  "mkfs",
+  "mkfs.",
+  "fdisk",
+  "parted",
+  "format",
+  "shred",
+  "wipefs",
+  "blockdev",
+  "> /dev/",
+  "> /dev/sd",
+  "> /dev/nvme",
+  ":(){ :|:& };:",  // fork bomb
+];

@@ -29,9 +29,40 @@ const resizeMessageSchema = z
   })
   .strict();
 
+const flowPauseMessageSchema = z
+  .object({
+    type: z.literal("flow-pause"),
+  })
+  .strict();
+
+const flowResumeMessageSchema = z
+  .object({
+    type: z.literal("flow-resume"),
+  })
+  .strict();
+
+const rpcRequestMessageSchema = z
+  .object({
+    type: z.literal("rpc"),
+    id: z.string().min(1).max(64),
+    method: z.enum([
+      "spawn_session",
+      "list_sessions",
+      "write_input",
+      "read_output",
+      "wait_for_boundary",
+      "exec",
+    ]),
+    params: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
 export const clientToServerMessageSchema = z.discriminatedUnion("type", [
   inputMessageSchema,
   resizeMessageSchema,
+  flowPauseMessageSchema,
+  flowResumeMessageSchema,
+  rpcRequestMessageSchema,
 ]);
 
 const outputMessageSchema = z
@@ -72,10 +103,37 @@ const cwdMessageSchema = z
   })
   .strict();
 
+const agentOutputMessageSchema = z
+  .object({
+    type: z.literal("agent-output"),
+    text: z.string(),
+  })
+  .strict();
+
+const commandBoundaryMessageSchema = z
+  .object({
+    type: z.literal("command-boundary"),
+    phase: z.enum(["prompt-start", "command-start", "output-start", "command-end"]),
+    exitCode: z.number().int().optional(),
+  })
+  .strict();
+
+const rpcResponseMessageSchema = z
+  .object({
+    type: z.literal("rpc-response"),
+    id: z.string().min(1).max(64),
+    result: z.unknown().optional(),
+    error: z.string().optional(),
+  })
+  .strict();
+
 export const serverToClientMessageSchema = z.discriminatedUnion("type", [
   outputMessageSchema,
   exitMessageSchema,
   titleMessageSchema,
   sessionMessageSchema,
   cwdMessageSchema,
+  agentOutputMessageSchema,
+  commandBoundaryMessageSchema,
+  rpcResponseMessageSchema,
 ]);

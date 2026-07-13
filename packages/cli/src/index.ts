@@ -22,12 +22,16 @@ program
   .option("-H, --host <host>", "host to bind", DEFAULT_HOST)
   .option("--no-open", "do not open browser on start")
   .option("-F, --foreground", "stay attached to this terminal (do not daemonize)", false)
-  .action(async (options: { port: number; host: string; open: boolean; foreground: boolean }) => {
+  .option("--yolo", "allow destructive commands in agent mode (bypass denylist)", false)
+  .option("--max-sessions <count>", "maximum concurrent sessions", parseInt, undefined)
+  .action(async (options: { port: number; host: string; open: boolean; foreground: boolean; yolo: boolean; maxSessions?: number }) => {
     await runStart({
       port: options.port,
       host: options.host,
       open: options.open,
       foreground: options.foreground,
+      yolo: options.yolo,
+      maxSessions: options.maxSessions,
     });
   });
 
@@ -51,11 +55,15 @@ program
   .option("-p, --port <port>", "port to bind", parsePortOption, initialPort)
   .option("-H, --host <host>", "host to bind", DEFAULT_HOST)
   .option("--no-open", "do not open browser on start")
-  .action(async (options: { port: number; host: string; open: boolean }) => {
+  .option("--yolo", "allow destructive commands in agent mode (bypass denylist)", false)
+  .option("--max-sessions <count>", "maximum concurrent sessions", parseInt, undefined)
+  .action(async (options: { port: number; host: string; open: boolean; yolo: boolean; maxSessions?: number }) => {
     await runRestart({
       port: options.port,
       host: options.host,
       open: options.open,
+      yolo: options.yolo,
+      maxSessions: options.maxSessions,
     });
   });
 

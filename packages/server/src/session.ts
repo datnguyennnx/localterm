@@ -20,6 +20,8 @@ import {
 import { ensureSpawnHelperExecutable } from "./ensure-spawn-helper-executable.js";
 import { getDefaultShell } from "./default-shell.js";
 import { Osc7ChunkParser } from "./osc7-chunk-parser.js";
+import { Osc133ChunkParser } from "./osc133-chunk-parser.js";
+import type { CommandBoundary } from "./utils/parse-osc133-from-chunk.js";
 import type { SpawnPtyInput } from "./types.js";
 import { formatWorkingDirectoryTitle } from "./utils/format-working-directory-title.js";
 import { resolveCwdForPid } from "./utils/resolve-cwd-for-pid.js";
@@ -29,12 +31,14 @@ interface SessionEvents {
   exit: [code: number | null];
   title: [title: string];
   cwd: [cwd: string];
+  commandBoundary: [boundary: CommandBoundary];
 }
 
 export class Session extends EventEmitter<SessionEvents> {
   readonly shell: string;
   readonly cwd: string;
   readonly createdAt: number;
+  readonly mode: "human" | "agent";
 
   private readonly pty: IPty;
   private readonly shellName: string;
@@ -48,6 +52,7 @@ export class Session extends EventEmitter<SessionEvents> {
   private nextCwdResolveAt = 0;
   private osc7Detected = false;
   private readonly osc7ChunkParser = new Osc7ChunkParser();
+  private readonly osc133ChunkParser = new Osc133ChunkParser();
 
   constructor(input: SpawnPtyInput) {
     super();
@@ -58,6 +63,7 @@ export class Session extends EventEmitter<SessionEvents> {
     this.currentCols = input.cols ?? DEFAULT_COLS;
     this.currentRows = input.rows ?? DEFAULT_ROWS;
     this.createdAt = Date.now();
+    this.mode = input.mode ?? "human";
 
     const env: Record<string, string> = {};
     const denied = new Set(PTY_ENV_DENYLIST);
@@ -183,6 +189,7 @@ export class Session extends EventEmitter<SessionEvents> {
     this.exited = true;
     this.stopTitlePolling();
     this.osc7ChunkParser.reset();
+    this.osc133ChunkParser.reset();
     this.removeAllListeners();
   }
 
@@ -194,6 +201,12 @@ export class Session extends EventEmitter<SessionEvents> {
         this.lastEmittedCwd = osc7Path;
         this.emit("cwd", osc7Path);
       }
+    }
+
+    // OSC 133 / FinalTerm command boundary detection.
+    const boundary = this.osc133ChunkParser.push(data);
+    if (boundary) {
+      this.emit("commandBoundary", boundary);
     }
   }
 

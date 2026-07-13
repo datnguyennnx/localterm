@@ -28,11 +28,18 @@ import { SessionRegistry } from "./session-registry.js";
 import { resolveStaticAsset } from "./static-resolver.js";
 import type { ServerToClientMessage } from "./types.js";
 import { getHeartbeatAction } from "./utils/get-heartbeat-action.js";
+import { SHELL_INTEGRATION_ENV_VAR } from "./shell-integration/index.js";
+import { validateAgentToken, loadOrCreateAgentToken } from "./agent-token.js";
+import { handleRpcRequest } from "./agent-rpc.js";
+import { stripAnsi } from "./utils/strip-ansi.js";
 
 export interface ServerOptions {
   port?: number;
   host?: string;
   staticRoot?: string | null;
+  agentToken?: string;
+  allowDestructiveCommands?: boolean;
+  maxConcurrentSessions?: number;
 }
 
 export interface RunningServer {
@@ -111,6 +118,8 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
   const staticRoot =
     typeof options.staticRoot === "string" ? path.resolve(options.staticRoot) : null;
 
+  loadOrCreateAgentToken();
+
   const registry = new SessionRegistry();
   const app = new Hono();
   const { injectWebSocket, upgradeWebSocket, wss } = createNodeWebSocket({ app });
@@ -163,13 +172,27 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
         }
       }
 
+      const rawMode = context.req.query("mode");
+      const sessionMode: "human" | "agent" = rawMode === "agent" ? "agent" : "human";
+
       return {
         onOpen(_event, ws) {
-          if (registry.size() >= MAX_CONCURRENT_SESSIONS) {
+          if (sessionMode === "agent") {
+            const rawToken = context.req.query("token");
+            if (!rawToken || !validateAgentToken(rawToken)) {
+              ws.close(1008, "invalid agent token");
+              return;
+            }
+          }
+          const maxSessions = options.maxConcurrentSessions ?? MAX_CONCURRENT_SESSIONS;
+          if (registry.size() >= maxSessions) {
             ws.close(WS_CLOSE_CAPACITY_REACHED, "session capacity reached");
             return;
           }
-          const newSession = new Session({ cwd: requestedCwd });
+          const integrationEnv = sessionMode === "agent"
+            ? { [SHELL_INTEGRATION_ENV_VAR]: "1" }
+            : undefined;
+          const newSession = new Session({ cwd: requestedCwd, mode: sessionMode, env: integrationEnv });
           session = newSession;
           registry.register(newSession);
 
@@ -258,6 +281,22 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             ws.close();
           };
           newSession.on("output", onOutput);
+          // Agent-mode gets ANSI-stripped text alongside raw binary output.
+          if (sessionMode === "agent") {
+            const onAgentOutput = (data: string) => {
+              const text = stripAnsi(data);
+              if (text) safeSend(ws, { type: "agent-output", text });
+            };
+            newSession.on("output", onAgentOutput);
+          }
+          const onCommandBoundary = (boundary: { phase: string; exitCode?: number }) => {
+            safeSend(ws, {
+              type: "command-boundary",
+              phase: boundary.phase as "prompt-start" | "command-start" | "output-start" | "command-end",
+              ...(boundary.exitCode !== undefined ? { exitCode: boundary.exitCode } : {}),
+            });
+          };
+          newSession.on("commandBoundary", onCommandBoundary);
           newSession.on("title", onTitle);
           newSession.on("cwd", onCwd);
           newSession.on("exit", onExit);
@@ -270,7 +309,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             cwd: newSession.cwd,
           });
         },
-        onMessage(event) {
+        onMessage(event, ws) {
           if (!session) return;
           let rawPayload: unknown;
           try {
@@ -283,8 +322,23 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           if (!parsed.success) return;
           if (parsed.data.type === "input") {
             session.write(parsed.data.data);
-          } else {
+          } else if (parsed.data.type === "resize") {
             session.resize(parsed.data.cols, parsed.data.rows);
+          } else if (parsed.data.type === "flow-pause") {
+            session.pause();
+          } else if (parsed.data.type === "flow-resume") {
+            session.resume();
+          } else if (parsed.data.type === "rpc") {
+            handleRpcRequest(
+              {
+                registry,
+                allowDestructiveCommands: options.allowDestructiveCommands ?? false,
+                sendResponse: (rpcId: string, result?: unknown, error?: string) => {
+                  safeSend(ws, { type: "rpc-response", id: rpcId, result, error });
+                },
+              },
+              { id: parsed.data.id, method: parsed.data.method, params: parsed.data.params },
+            );
           }
         },
         onClose(event) {

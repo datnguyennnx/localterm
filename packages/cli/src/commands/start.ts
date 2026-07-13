@@ -43,6 +43,8 @@ export interface StartOptions {
   host: string;
   open: boolean;
   foreground: boolean;
+  yolo?: boolean;
+  maxSessions?: number;
 }
 
 const isRunningAsDaemonChild = (): boolean => process.env[DAEMON_CHILD_ENV_FLAG] === "1";
@@ -135,6 +137,8 @@ const runStartInForeground = async (options: StartOptions): Promise<void> => {
       port: options.port,
       host: options.host,
       staticRoot,
+      allowDestructiveCommands: options.yolo ?? false,
+      maxConcurrentSessions: options.maxSessions,
     });
   } catch (caughtError) {
     const startError = cliError.serverStartFailed(
@@ -193,4 +197,5 @@ export const startDefaults: StartOptions = {
   host: DEFAULT_HOST,
   open: true,
   foreground: false,
+  yolo: false,
 };
