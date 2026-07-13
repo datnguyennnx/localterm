@@ -1,4 +1,4 @@
-import { isLoopbackHost } from "localterm-server";
+import { isLoopbackHost } from "@datnguyennnx/localterm-server";
 import { type CliError, cliError } from "../errors.js";
 import { clearPid, isAlive, readPid, readPort } from "../state.js";
 import { verifyPidIsLocalterm } from "./verify-pid-is-localterm.js";

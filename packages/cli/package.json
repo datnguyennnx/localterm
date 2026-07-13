@@ -1,5 +1,5 @@
 {
-  "name": "localterm",
+  "name": "@datnguyennnx/localterm",
   "version": "0.0.15",
   "description": "A browser-based terminal: one browser tab is one PTY session. Friendly URL, persistent xterm.js front-end, hono + node-pty back-end.",
   "keywords": [
@@ -53,7 +53,7 @@
   "dependencies": {
     "commander": "^12.1.0",
     "kleur": "^4.1.5",
-    "localterm-server": "workspace:*",
+    "@datnguyennnx/localterm-server": "workspace:*",
     "open": "^10.1.0",
     "zod": "^4.3.6"
   },

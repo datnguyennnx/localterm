@@ -40,6 +40,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.4.1
         version: 1.4.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@datnguyennnx/localterm-server':
+        specifier: workspace:*
+        version: link:../../packages/server
       '@fontsource/geist-mono':
         specifier: ^5.2.7
         version: 5.2.7
@@ -76,9 +79,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      localterm-server:
-        specifier: workspace:*
-        version: link:../../packages/server
       lucide-react:
         specifier: ^1.14.0
         version: 1.14.0(react@19.2.5)
@@ -142,15 +142,15 @@ importers:
 
   packages/cli:
     dependencies:
+      '@datnguyennnx/localterm-server':
+        specifier: workspace:*
+        version: link:../server
       commander:
         specifier: ^12.1.0
         version: 12.1.0
       kleur:
         specifier: ^4.1.5
         version: 4.1.5
-      localterm-server:
-        specifier: workspace:*
-        version: link:../server
       open:
         specifier: ^10.1.0
         version: 10.2.0

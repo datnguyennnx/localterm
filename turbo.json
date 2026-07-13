@@ -5,8 +5,8 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**"]
     },
-    "localterm#build": {
-      "dependsOn": ["localterm-server#build", "@localterm/terminal#build"]
+    "@datnguyennnx/localterm#build": {
+      "dependsOn": ["@datnguyennnx/localterm-server#build", "@localterm/terminal#build"]
     },
     "dev": {
       "cache": false,

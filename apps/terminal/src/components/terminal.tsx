@@ -105,7 +105,7 @@ import { storeTerminalScrollback } from "@/utils/store-terminal-scrollback";
 import { storeTerminalScrollOnUserInput } from "@/utils/store-terminal-scroll-on-user-input";
 import { storeTerminalThemeId } from "@/utils/store-terminal-theme-id";
 import { syncAppleWebKitViewport } from "@/utils/sync-apple-webkit-viewport";
-import { MAX_INPUT_BYTES, type ClientToServerMessage } from "localterm-server/protocol";
+import { MAX_INPUT_BYTES, type ClientToServerMessage } from "@datnguyennnx/localterm-server/protocol";
 import "@xterm/xterm/css/xterm.css";
 
 const titleForLiveSession = (raw: string): string => raw || DEFAULT_DOCUMENT_TITLE;

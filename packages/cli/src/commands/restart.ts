@@ -1,5 +1,5 @@
 import { openSync } from "node:fs";
-import { isLoopbackHost } from "localterm-server";
+import { isLoopbackHost } from "@datnguyennnx/localterm-server";
 import kleur from "kleur";
 import { DAEMON_PROBE_INTERVAL_MS, DAEMON_PROBE_MAX_WAIT_MS } from "../constants.js";
 import { cliError, exitCodeForCliError } from "../errors.js";
