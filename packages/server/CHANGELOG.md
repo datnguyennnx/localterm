@@ -1,5 +1,11 @@
 # localterm-server
 
+## 0.1.0
+
+### Minor Changes
+
+- formmatter & lint
+
 ## 0.0.16
 
 ### Patch Changes

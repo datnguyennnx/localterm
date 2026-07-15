@@ -1,5 +1,16 @@
 # localterm
 
+## 0.1.0
+
+### Minor Changes
+
+- formmatter & lint
+
+### Patch Changes
+
+- Updated dependencies
+  - @datnguyennnx/localterm-server@0.1.0
+
 ## 0.0.16
 
 ### Patch Changes
