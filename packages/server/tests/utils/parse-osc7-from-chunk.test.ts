@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { parseOsc7FromChunk } from "../../src/utils/parse-osc7-from-chunk.js";
+import { parseOsc7FromChunk } from "../../src/parser/parse-osc7-from-chunk.js";
 
 describe("parseOsc7FromChunk", () => {
   it("decodes BEL-terminated file URLs", () => {

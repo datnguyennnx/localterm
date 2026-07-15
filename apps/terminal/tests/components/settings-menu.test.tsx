@@ -441,10 +441,10 @@ describe("SettingsMenu live preview", () => {
     renderSettingsMenu({ onThemePreview });
 
     openThemeSelect();
-    const draculaItem = screen.getByText("Dracula");
-    fireEvent.pointerEnter(draculaItem);
+    const githubDarkItem = screen.getByText("GitHub Dark");
+    fireEvent.pointerEnter(githubDarkItem);
 
-    expect(onThemePreview).toHaveBeenCalledWith("dracula");
+    expect(onThemePreview).toHaveBeenCalledWith("github-dark");
   });
 
   it("calls onFontPreview when the pointer enters a font item", () => {
@@ -463,7 +463,7 @@ describe("SettingsMenu live preview", () => {
     renderSettingsMenu({ onThemePreview });
 
     openThemeSelect();
-    fireEvent.pointerEnter(screen.getByText("Dracula"));
+    fireEvent.pointerEnter(screen.getByText("GitHub Dark"));
     onThemePreview.mockClear();
 
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });

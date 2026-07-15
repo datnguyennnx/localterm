@@ -6,16 +6,18 @@ export class OutputBatcher {
   private readonly chunks: string[] = [];
   private bufferedBytes = 0;
   private timer: NodeJS.Timeout | null = null;
+  private lastEndedWithHighSurrogate = false;
 
-  constructor(private readonly onFlush: (output: Uint8Array<ArrayBuffer>) => void) {}
+  constructor(private readonly onFlush: (output: Uint8Array) => void) {}
 
   push(data: string): void {
     if (!data) return;
     this.chunks.push(data);
     this.bufferedBytes += Buffer.byteLength(data);
+    this.lastEndedWithHighSurrogate = TRAILING_HIGH_SURROGATE_PATTERN.test(data);
     if (
       this.bufferedBytes >= OUTPUT_BATCH_MAX_BYTES &&
-      !TRAILING_HIGH_SURROGATE_PATTERN.test(data)
+      !this.lastEndedWithHighSurrogate
     ) {
       this.flush();
       return;

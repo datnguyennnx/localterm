@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { parseOsc133FromChunk } from "../../src/utils/parse-osc133-from-chunk.js";
+import { parseOsc133FromChunk } from "../../src/parser/parse-osc133-from-chunk.js";
 
 describe("parseOsc133FromChunk", () => {
   it("extracts prompt-start from a simple chunk", () => {

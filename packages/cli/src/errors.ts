@@ -3,8 +3,8 @@ import {
   EXIT_OK,
   EXIT_USAGE_ERROR,
   STOP_COMMAND,
-  getFriendlyUrl,
 } from "./constants.js";
+import { getFriendlyUrl } from "./utils/get-friendly-url.js";
 
 interface InvalidPortError {
   kind: "invalid-port";
@@ -57,7 +57,7 @@ interface DaemonReadyTimeoutError {
   code: "E_LT_CLI_DAEMON_READY_TIMEOUT";
   severity: "warning";
   pid: number;
-  waitedMs: number;
+  maxWaitMs: number;
   logPath: string;
 }
 
@@ -151,14 +151,14 @@ export const cliError = {
   }),
   daemonReadyTimeout: (
     pid: number,
-    waitedMs: number,
+    maxWaitMs: number,
     logPath: string,
   ): DaemonReadyTimeoutError => ({
     kind: "daemon-ready-timeout",
     code: "E_LT_CLI_DAEMON_READY_TIMEOUT",
     severity: "warning",
     pid,
-    waitedMs,
+    maxWaitMs,
     logPath,
   }),
   serverStartFailed: (cause: Error): ServerStartFailedError => ({
@@ -209,7 +209,7 @@ export const formatCliError = (error: CliError): string => {
     case "daemon-died":
       return `daemon died during startup.`;
     case "daemon-ready-timeout":
-      return `daemon spawned (pid ${error.pid}) but didn't bind a port within ${error.waitedMs}ms.`;
+      return `daemon spawned (pid ${error.pid}) but didn't bind a port within ${error.maxWaitMs}ms.`;
     case "server-start-failed":
       return `failed to start: ${error.cause.message}`;
     case "pid-not-ours":
@@ -268,16 +268,3 @@ export const exitCodeForCliError = (error: CliError): number => {
   }
 };
 
-export class CliErrorException extends Error {
-  readonly error: CliError;
-  constructor(error: CliError) {
-    super(formatCliError(error), {
-      cause: "cause" in error ? error.cause : undefined,
-    });
-    this.name = "CliErrorException";
-    this.error = error;
-  }
-}
-
-export const isCliErrorException = (value: unknown): value is CliErrorException =>
-  value instanceof CliErrorException;

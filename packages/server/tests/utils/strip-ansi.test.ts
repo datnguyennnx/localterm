@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { stripAnsi } from "../../src/utils/strip-ansi.js";
+import { stripAnsi } from "../../src/parser/strip-ansi.js";
 
 describe("stripAnsi", () => {
   it("passes through plain text unchanged", () => {

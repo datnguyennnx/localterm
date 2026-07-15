@@ -8,8 +8,8 @@ import {
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 describe("terminal-themes registry", () => {
-  it("ships with at least a dozen distinct dark themes", () => {
-    expect(TERMINAL_THEMES.length).toBeGreaterThanOrEqual(12);
+  it("ships with a curated set of themes", () => {
+    expect(TERMINAL_THEMES.length).toBe(3);
     const ids = new Set(TERMINAL_THEMES.map((theme) => theme.id));
     expect(ids.size).toBe(TERMINAL_THEMES.length);
   });

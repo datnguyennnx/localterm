@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -53,13 +53,16 @@ export const SettingsSelect = ({
 }: SettingsSelectProps) => {
   // Without our own label rendering, Base UI's <SelectValue> falls back to the raw
   // value (e.g. "vesper") instead of the human-readable label ("Vesper").
-  const activeItem = items.find((item) => item.id === value);
+  const activeItem = useMemo(() => items.find((item) => item.id === value), [items, value]);
   // Auto-merge the active item's itemStyle into the trigger so per-item visuals
   // (e.g. font-family on the Font picker) appear on the trigger too. Caller's
   // explicit `triggerStyle` still wins.
-  const mergedTriggerStyle = activeItem?.itemStyle
-    ? { ...activeItem.itemStyle, ...triggerStyle }
-    : triggerStyle;
+  const mergedTriggerStyle = useMemo(() => {
+    if (activeItem?.itemStyle) {
+      return { ...activeItem.itemStyle, ...triggerStyle };
+    }
+    return triggerStyle;
+  }, [activeItem?.itemStyle, triggerStyle]);
   return (
     <Select value={value} onValueChange={onValueChange} open={open} onOpenChange={onOpenChange}>
       <SelectTrigger

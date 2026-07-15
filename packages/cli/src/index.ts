@@ -7,7 +7,12 @@ import { runStop } from "./commands/stop.js";
 import { parsePortOption } from "./utils/parse-port-option.js";
 import { readPackageVersion } from "./utils/read-package-version.js";
 
-const initialPort = parsePortOption(process.env.PORT ?? String(DEFAULT_PORT));
+let initialPort: number;
+try {
+  initialPort = parsePortOption(process.env.PORT ?? String(DEFAULT_PORT));
+} catch {
+  initialPort = DEFAULT_PORT;
+}
 
 const program = new Command();
 program

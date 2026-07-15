@@ -7,8 +7,8 @@ import {
 } from "../../src/lib/terminal-fonts";
 
 describe("terminal-fonts registry", () => {
-  it("ships with several distinct monospace fonts", () => {
-    expect(TERMINAL_FONTS.length).toBeGreaterThanOrEqual(8);
+  it("ships with a curated set of fonts", () => {
+    expect(TERMINAL_FONTS.length).toBe(3);
     const ids = new Set(TERMINAL_FONTS.map((font) => font.id));
     expect(ids.size).toBe(TERMINAL_FONTS.length);
   });

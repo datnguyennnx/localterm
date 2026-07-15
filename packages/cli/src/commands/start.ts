@@ -1,4 +1,4 @@
-import { existsSync, openSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, DEFAULT_HOST, DEFAULT_PORT } from "@datnguyennnx/localterm-server";
@@ -6,23 +6,19 @@ import kleur from "kleur";
 import open from "open";
 import {
   DAEMON_CHILD_ENV_FLAG,
-  DAEMON_PROBE_INTERVAL_MS,
-  DAEMON_PROBE_MAX_WAIT_MS,
   DAEMON_PROCESS_TITLE,
   EXIT_FAILURE,
   EXIT_OK,
   FORCE_EXIT_TIMEOUT_MS,
-  getFriendlyUrl,
   STOP_COMMAND,
 } from "../constants.js";
 import { cliError, exitCodeForCliError } from "../errors.js";
-import { clearPid, ensureLogFile, isAlive, readPid, readPort, writePid } from "../state.js";
+import { clearPid, writePid } from "../state.js";
 import { buildDaemonStartArgs } from "../utils/build-daemon-args.js";
-import { pollForDaemonReady } from "../utils/poll-for-daemon-ready.js";
+import { getFriendlyUrl } from "../utils/get-friendly-url.js";
 import { reportCliError } from "../utils/report-cli-error.js";
 import { runStartPreflight } from "../utils/run-start-preflight.js";
-import { sleep } from "../utils/sleep.js";
-import { spawnDaemon } from "../utils/spawn-daemon.js";
+import { spawnDaemonAndWait } from "../utils/spawn-daemon-and-wait.js";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,40 +60,15 @@ const runStartAsDaemon = async (options: StartOptions): Promise<void> => {
     process.exit(exitCodeForCliError(preflightError));
   }
 
-  const portBeforeSpawn = readPort();
-  const logPath = ensureLogFile();
-  const logFd = openSync(logPath, "a");
-  const { pid: childPid } = spawnDaemon({
-    args: buildDaemonStartArgs(options),
-    logFd,
-  });
+  const result = await spawnDaemonAndWait(buildDaemonStartArgs(options));
 
-  if (childPid === undefined) {
-    const error = cliError.daemonSpawnFailed(process.execPath, logPath);
-    reportCliError(error);
-    process.exit(exitCodeForCliError(error));
+  if (!result.ok) {
+    reportCliError(result.error);
+    process.exit(exitCodeForCliError(result.error));
   }
 
-  const result = await pollForDaemonReady({
-    childPid,
-    initialPort: portBeforeSpawn,
-    intervalMs: DAEMON_PROBE_INTERVAL_MS,
-    maxWaitMs: DAEMON_PROBE_MAX_WAIT_MS,
-    logPath,
-    isAlive,
-    readPid,
-    readPort,
-    sleep,
-  });
-
-  if (result.ok) {
-    printDaemonStartedBanner(result.port);
-    if (options.open) await openInBrowser(getFriendlyUrl(result.port));
-    return;
-  }
-
-  reportCliError(result.error);
-  process.exit(exitCodeForCliError(result.error));
+  printDaemonStartedBanner(result.port);
+  if (options.open) await openInBrowser(getFriendlyUrl(result.port));
 };
 
 const printDaemonStartedBanner = (port: number): void => {
@@ -175,15 +146,17 @@ const runStartInForeground = async (options: StartOptions): Promise<void> => {
       process.exit(EXIT_FAILURE);
     }, FORCE_EXIT_TIMEOUT_MS);
     forceExit.unref();
+    let stopOk = false;
     try {
       await server.stop();
+      stopOk = true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.log(kleur.red(`stop error: ${message}`));
     } finally {
       clearTimeout(forceExit);
       clearPid();
-      process.exit(EXIT_OK);
+      process.exit(stopOk ? EXIT_OK : EXIT_FAILURE);
     }
   };
 

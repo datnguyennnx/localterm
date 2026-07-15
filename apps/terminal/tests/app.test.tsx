@@ -6,7 +6,7 @@ import { App } from "../src/app";
 let lastTerminalProps: { onModalOpenChange?: (open: boolean) => void } | null = null;
 let setMockModalOpen: ((open: boolean) => void) | null = null;
 
-vi.mock("../src/components/terminal", () => ({
+vi.mock("@/features/terminal", () => ({
   Terminal: (props: { onModalOpenChange?: (open: boolean) => void }) => {
     lastTerminalProps = props;
     useEffect(() => {
@@ -43,24 +43,14 @@ describe("App", () => {
     expect(await screen.findByTestId("terminal")).toBeDefined();
   });
 
-  it("only arms beforeunload after the first keystroke in the tab", async () => {
+  it("arms beforeunload immediately to warn when closing with an active shell", async () => {
     const addSpy = vi.spyOn(window, "addEventListener");
     render(<App />);
 
     await screen.findByTestId("terminal");
     await waitFor(() => {
-      const armed = addSpy.mock.calls.some(([eventName]) => eventName === "keydown");
-      expect(armed).toBe(true);
-    });
-
-    const beforeKeystroke = addSpy.mock.calls.some(([eventName]) => eventName === "beforeunload");
-    expect(beforeKeystroke).toBe(false);
-
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
-
-    await waitFor(() => {
-      const afterKeystroke = addSpy.mock.calls.some(([eventName]) => eventName === "beforeunload");
-      expect(afterKeystroke).toBe(true);
+      const hasBeforeUnload = addSpy.mock.calls.some(([eventName]) => eventName === "beforeunload");
+      expect(hasBeforeUnload).toBe(true);
     });
   });
 

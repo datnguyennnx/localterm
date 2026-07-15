@@ -1,5 +1,12 @@
 # localterm
 
+## 0.0.16
+
+### Patch Changes
+
+- Major refactoring: restructure server into feature folders, split terminal.tsx into 9 modules, simplify themes (16→3) and fonts (11→3), consolidate localStorage storage layer, fix ArrayBuffer pooled buffer corruption, surrogate pair splitting, SSR crash, memory leaks, CLI exit codes, and 40+ other bugs and performance issues
+  - @datnguyennnx/localterm-server@0.0.16
+
 ## 0.0.15
 
 ### Patch Changes

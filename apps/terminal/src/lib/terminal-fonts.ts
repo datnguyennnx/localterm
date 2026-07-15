@@ -1,7 +1,7 @@
 import { LOCAL_FONT_ID } from "@/lib/constants";
 import { escapeCssFontFamily } from "@/utils/escape-css-font-family";
 
-type TerminalFontSource = "fontsource" | "google" | "local";
+type TerminalFontSource = "fontsource" | "google" | "local" | "native";
 
 export interface TerminalFont {
   id: string;
@@ -22,6 +22,13 @@ export const buildLocalTerminalFont = (family: string): TerminalFont => ({
   source: "local",
 });
 
+const BROWSER_NATIVE: TerminalFont = {
+  id: "browser-native",
+  name: "Browser Native",
+  family: `"SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", ${MONO_FALLBACK}`,
+  source: "native",
+};
+
 const GEIST_MONO: TerminalFont = {
   id: "geist-mono",
   name: "Geist Mono",
@@ -36,81 +43,10 @@ const JETBRAINS_MONO: TerminalFont = {
   source: "google",
 };
 
-const FIRA_CODE: TerminalFont = {
-  id: "fira-code",
-  name: "Fira Code",
-  family: buildFamily("Fira Code"),
-  source: "google",
-};
-
-const IBM_PLEX_MONO: TerminalFont = {
-  id: "ibm-plex-mono",
-  name: "IBM Plex Mono",
-  family: buildFamily("IBM Plex Mono"),
-  source: "google",
-};
-
-const SOURCE_CODE_PRO: TerminalFont = {
-  id: "source-code-pro",
-  name: "Source Code Pro",
-  family: buildFamily("Source Code Pro"),
-  source: "google",
-};
-
-const ROBOTO_MONO: TerminalFont = {
-  id: "roboto-mono",
-  name: "Roboto Mono",
-  family: buildFamily("Roboto Mono"),
-  source: "google",
-};
-
-const DM_MONO: TerminalFont = {
-  id: "dm-mono",
-  name: "DM Mono",
-  family: buildFamily("DM Mono"),
-  source: "google",
-};
-
-const INCONSOLATA: TerminalFont = {
-  id: "inconsolata",
-  name: "Inconsolata",
-  family: buildFamily("Inconsolata"),
-  source: "google",
-};
-
-const SPACE_MONO: TerminalFont = {
-  id: "space-mono",
-  name: "Space Mono",
-  family: buildFamily("Space Mono"),
-  source: "google",
-};
-
-const UBUNTU_MONO: TerminalFont = {
-  id: "ubuntu-mono",
-  name: "Ubuntu Mono",
-  family: buildFamily("Ubuntu Mono"),
-  source: "google",
-};
-
-const ANONYMOUS_PRO: TerminalFont = {
-  id: "anonymous-pro",
-  name: "Anonymous Pro",
-  family: buildFamily("Anonymous Pro"),
-  source: "google",
-};
-
 export const TERMINAL_FONTS: TerminalFont[] = [
+  BROWSER_NATIVE,
   GEIST_MONO,
-  ANONYMOUS_PRO,
-  DM_MONO,
-  FIRA_CODE,
-  IBM_PLEX_MONO,
-  INCONSOLATA,
   JETBRAINS_MONO,
-  ROBOTO_MONO,
-  SOURCE_CODE_PRO,
-  SPACE_MONO,
-  UBUNTU_MONO,
 ];
 
 export const DEFAULT_TERMINAL_FONT_ID: string = GEIST_MONO.id;

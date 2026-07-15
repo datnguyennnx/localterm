@@ -1,14 +1,9 @@
-import { openSync } from "node:fs";
 import { isLoopbackHost } from "@datnguyennnx/localterm-server";
 import kleur from "kleur";
-import { DAEMON_PROBE_INTERVAL_MS, DAEMON_PROBE_MAX_WAIT_MS } from "../constants.js";
 import { cliError, exitCodeForCliError } from "../errors.js";
-import { ensureLogFile, isAlive, readPid, readPort } from "../state.js";
 import { buildDaemonStartArgs } from "../utils/build-daemon-args.js";
-import { pollForDaemonReady } from "../utils/poll-for-daemon-ready.js";
 import { reportCliError } from "../utils/report-cli-error.js";
-import { sleep } from "../utils/sleep.js";
-import { spawnDaemon } from "../utils/spawn-daemon.js";
+import { spawnDaemonAndWait } from "../utils/spawn-daemon-and-wait.js";
 import { runStop } from "./stop.js";
 
 export interface RestartOptions {
@@ -26,39 +21,15 @@ export const runRestart = async (options: RestartOptions): Promise<void> => {
     process.exit(exitCodeForCliError(error));
   }
   await runStop();
-  const portBeforeSpawn = readPort();
-  const logPath = ensureLogFile();
-  const logFd = openSync(logPath, "a");
-  const { pid: childPid } = spawnDaemon({
-    args: buildDaemonStartArgs(options),
-    logFd,
-  });
 
-  if (childPid === undefined) {
-    const error = cliError.daemonSpawnFailed(process.execPath, logPath);
-    reportCliError(error);
-    process.exit(exitCodeForCliError(error));
+  const result = await spawnDaemonAndWait(buildDaemonStartArgs(options));
+
+  if (!result.ok) {
+    reportCliError(result.error);
+    process.exit(exitCodeForCliError(result.error));
   }
 
-  const result = await pollForDaemonReady({
-    childPid,
-    initialPort: portBeforeSpawn,
-    intervalMs: DAEMON_PROBE_INTERVAL_MS,
-    maxWaitMs: DAEMON_PROBE_MAX_WAIT_MS,
-    logPath,
-    isAlive,
-    readPid,
-    readPort,
-    sleep,
-  });
-
-  if (result.ok) {
-    console.log(
-      kleur.green(`✔ restarted (pid ${childPid}, port ${result.port}, logs: ${logPath})`),
-    );
-    return;
-  }
-
-  reportCliError(result.error);
-  process.exit(exitCodeForCliError(result.error));
+  console.log(
+    kleur.green(`✔ restarted (pid ${result.pid}, port ${result.port}, logs: ${result.logPath})`),
+  );
 };

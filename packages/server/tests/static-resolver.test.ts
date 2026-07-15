@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
-import { resolveStaticAsset } from "../src/static-resolver.js";
+import { resolveStaticAsset } from "../src/server/static-resolver.js";
 
 let staticRoot: string;
 let secretPath: string;

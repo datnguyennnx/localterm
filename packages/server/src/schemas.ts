@@ -106,7 +106,7 @@ const cwdMessageSchema = z
 const agentOutputMessageSchema = z
   .object({
     type: z.literal("agent-output"),
-    text: z.string(),
+    text: z.string().max(MAX_OUTPUT_BYTES),
   })
   .strict();
 

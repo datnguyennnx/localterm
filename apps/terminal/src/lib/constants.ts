@@ -36,6 +36,11 @@ export const TOOLTIP_SIDE_OFFSET_PX = 8;
 
 export const NUMBER_STEPPER_SCRUB_PIXELS_PER_STEP = 5;
 
+export const UNICODE_HIGH_SURROGATE_MIN = 0xd800;
+export const UNICODE_HIGH_SURROGATE_MAX = 0xdbff;
+export const UNICODE_LOW_SURROGATE_MIN = 0xdc00;
+export const UNICODE_LOW_SURROGATE_MAX = 0xdfff;
+
 export const ENTER_KEY_CODE = 13;
 export const KEYBOARD_MODIFIER_SHIFT_BIT = 1;
 export const KEYBOARD_MODIFIER_ALT_BIT = 2;

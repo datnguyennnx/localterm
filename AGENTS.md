@@ -1,6 +1,6 @@
 ## General Rules
 
-- MUST: Use @antfu/ni. Use `ni` to install, `nr SCRIPT_NAME` to run. `nun` to uninstall.
+- MUST: Use pnpm directly. Use `pnpm install` to install, `pnpm run <script>` (or `pnpm <script>` for the well-known scripts) to run, `pnpm remove` to uninstall.
 - MUST: Use TypeScript interfaces over types.
   - Carve-out: discriminated unions, conditional types, mapped types, and `z.infer<...>` aliases must use `type` (TypeScript does not allow `interface X = A | B`). Object shapes still use `interface`.
 - MUST: Keep all types in the global scope.
@@ -22,14 +22,39 @@
 
 ## Testing
 
-Run checks always before committing with:
+Do NOT run `pnpm test` / `pnpm lint` / `pnpm typecheck` / `pnpm format` as part of your normal turn flow or to "verify your work" before responding. These are slow, and running them mid-task just stalls iteration. Run the full suite exactly once — at the very end, when the user signals the whole task is complete and no more iteration is expected (the dust has fully settled). Not per-turn, not per-commit, not before sending a response.
+
+### Test tiers
+
+The suite is split by flake risk so the agent never burns a turn chasing a fail-then-pass:
+
+- `pnpm test` — **deterministic unit tests only** (the default; fast, no real timers/waits). This is the green gate.
+- `pnpm test:integration` — **integration tests** (real PTY / WebSocket / child process), tagged `@integration`. Run on demand, not every turn.
+- `pnpm test:e2e` — **e2e tests** (real browser / HTTPS / OIDC), tagged `@e2e`. On demand.
+
+### Running the suite (one run, one file)
+
+Never invoke `pnpm test` twice (once to tail, once to grep) — that doubles the wait. Redirect the single run to a temp file, then read the failure list and the tail from that one file:
 
 ```bash
-pnpm test
+pnpm test > /tmp/localterm-test.log 2>&1
+grep -E "FAIL |Test Files|Tests " /tmp/localterm-test.log | head -40   # the failed tests
+tail -25 /tmp/localterm-test.log                                       # the run summary
+```
+
+The other end-of-task checks:
+
+```bash
 pnpm lint
 pnpm typecheck
 pnpm format
 ```
+
+`pnpm format` mutates files — always `git diff` afterward and include any formatting changes in the commit.
+
+### Flaky-test stance
+
+`pnpm test` (the main suite) MUST stay deterministic: no `await wait(N)`, no `pollFor`, no bumped `testTimeout` / `hookTimeout` to paper over load. A test that fails-then-passes is a bug — fix it by first principles (extract pure logic, `vi.useFakeTimers()`, inject fakes) or move it to the `@integration` / `@e2e` tier via a vitest `tags` option. Genuine end-to-end coverage (real shell / WebSocket / browser) belongs in `pnpm test:integration` / `pnpm test:e2e`, never in the main suite. Make-deterministic-first where feasible; gate the rest.
 
 ## Development instructions
 
@@ -41,16 +66,72 @@ This is a pnpm monorepo with `apps/` (playgrounds, sites, extensions) and `packa
 
 ### Approved build scripts
 
-The root `package.json` has `pnpm.onlyBuiltDependencies` configured for `@parcel/watcher`, `esbuild`, `sharp`, `spawn-sync`, and `unrs-resolver`. Without this, `pnpm install` silently skips their native builds and downstream packages may fail.
+`pnpm-workspace.yaml` has `onlyBuiltDependencies` configured for `@parcel/watcher`, `esbuild`, `node-pty`, `sharp`, `spawn-sync`, and `unrs-resolver`. Without this, `pnpm install` silently skips their native builds and downstream packages may fail.
 
 ### Key commands reference
 
 See root `package.json` scripts for the full list. Quick reference:
 
-- **Install**: `ni` (or `pnpm install`)
-- **Build**: `nr build` (or `pnpm build`)
-- **Dev watch**: `nr dev` (or `pnpm dev`)
-- **Test**: `pnpm test`
+- **Install**: `pnpm install`
+- **Build**: `pnpm build`
+- **Dev watch**: `pnpm dev`
 - **Lint**: `pnpm lint`
-- **Typecheck**: `pnpm typecheck`
+- **Lint dead code**: `pnpm lint:dead` (runs `knip` to find unused files, exports, and dependencies)
 - **Format**: `pnpm format`
+- **Test**: `pnpm test`
+- **Typecheck**: `pnpm typecheck`
+
+## Git & Release Workflow
+
+### Committing changes
+
+1. **Stage everything**: `git add -A`
+2. **Commit with 1-line message** describing what changed. Patterns:
+   - `refactor: ...` for restructuring, cleanup, performance
+   - `fix: ...` for bug fixes
+   - `feat: ...` for new features
+   - `chore: ...` for maintenance, deps, tooling
+3. **Verify after commit**: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm format`
+
+### Publishing to npm
+
+1. **Create a changeset** describing the change:
+   ```bash
+   pnpm changeset
+   ```
+   Follow the prompts — selects which packages to version and writes a summary to `.changeset/*.md`.
+
+2. **Version bump**:
+   ```bash
+   pnpm changeset version
+   ```
+   This consumes the changeset file, bumps versions in `package.json`, and updates `CHANGELOG.md` for each published package.
+
+3. **Commit the version bump**:
+   ```bash
+   git add -A
+   git commit -m "chore: bump version to X.Y.Z"
+   ```
+
+4. **Build and publish**:
+   ```bash
+   pnpm build
+   pnpm changeset publish
+   ```
+   This publishes to npm. Requires `npm login` and npm token configured.
+
+### Version strategy
+
+- `@datnguyennnx/localterm` (CLI) and `@datnguyennnx/localterm-server` (server) are **fixed** — versioned together as a pair (same version number).
+- `@localterm/terminal` (browser app) and `@localterm/website` are **ignored** — not published to npm.
+- Patch bump for bug fixes and refactoring. Minor bump for new features. Major bump for breaking changes.
+
+### Package dependency chain
+
+```
+@datnguyennnx/localterm (CLI)
+  └── depends on → @datnguyennnx/localterm-server (server)
+  └── serves → @localterm/terminal (browser app, bundled into server static assets)
+```
+
+When bumping the CLI, the server version is also bumped automatically (fixed pair). The terminal app is bundled into the server and distributed through it — no separate versioning needed.

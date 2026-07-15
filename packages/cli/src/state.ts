@@ -3,7 +3,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
-  unlinkSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { getLogFile, getPidFile, getPortFile, getStateDirectory } from "./paths.js";
@@ -38,11 +38,7 @@ export const writePid = (pid: number, port: number): void => {
 
 export const clearPid = (): void => {
   for (const file of [getPidFile(), getPortFile()]) {
-    try {
-      if (existsSync(file)) unlinkSync(file);
-    } catch {
-      /* file may have been removed by another process between existsSync and unlink */
-    }
+    rmSync(file, { force: true });
   }
 };
 
@@ -67,7 +63,7 @@ export const isAlive = (pid: number): boolean => {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    if (error && typeof error === "object" && Reflect.get(error, "code") === "EPERM") {
+    if (error instanceof Error && (error as { code?: string }).code === "EPERM") {
       return true;
     }
     return false;

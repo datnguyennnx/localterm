@@ -40,7 +40,6 @@ export const pollForDaemonReady = async (
     }
     const observedPort = options.readPort();
     if (observedPort !== null && options.readPid() === options.childPid) {
-      if (observedPort !== options.initialPort) return { ok: true, port: observedPort };
       if (await probeHealth(observedPort)) return { ok: true, port: observedPort };
     }
   }

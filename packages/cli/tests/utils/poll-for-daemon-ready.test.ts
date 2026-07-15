@@ -3,6 +3,7 @@ import { pollForDaemonReady } from "../../src/utils/poll-for-daemon-ready.js";
 
 const noopSleep = (): Promise<void> => Promise.resolve();
 const neverHealthy = (): Promise<boolean> => Promise.resolve(false);
+const alwaysHealthy = (): Promise<boolean> => Promise.resolve(true);
 
 const STANDARD_OPTIONS = {
   childPid: 12345,
@@ -24,27 +25,28 @@ describe("pollForDaemonReady", () => {
         tick += 1;
         return tick < 3 ? null : 4242;
       },
+      probeHealth: alwaysHealthy,
       sleep: noopSleep,
     });
     expect(result).toEqual({ ok: true, port: 4242 });
   });
 
-  it("rejects a stale port that matches initialPort and keeps polling", async () => {
-    const stalePort = 3417;
-    const newPort = 5555;
-    let tick = 0;
+  it("keeps polling when health check fails and only accepts after it passes", async () => {
+    let probeCount = 0;
     const result = await pollForDaemonReady({
       ...STANDARD_OPTIONS,
-      initialPort: stalePort,
+      initialPort: null,
       isAlive: () => true,
-      readPort: () => {
-        tick += 1;
-        if (tick < 4) return stalePort;
-        return newPort;
+      readPort: () => 3417,
+      readPid: () => 12345,
+      probeHealth: async () => {
+        probeCount += 1;
+        return probeCount >= 3;
       },
       sleep: noopSleep,
     });
-    expect(result).toEqual({ ok: true, port: newPort });
+    expect(result).toEqual({ ok: true, port: 3417 });
+    expect(probeCount).toBe(3);
   });
 
   it("returns a daemon-died CliError when the child process disappears mid-poll", async () => {
@@ -81,7 +83,7 @@ describe("pollForDaemonReady", () => {
     }
   });
 
-  it("resolves immediately on the first tick when a fresh port is already present", async () => {
+  it("resolves immediately on the first tick when a fresh port is already present and healthy", async () => {
     const isAlive = vi.fn(() => true);
     const readPort = vi.fn(() => 7777);
     const result = await pollForDaemonReady({
@@ -89,6 +91,7 @@ describe("pollForDaemonReady", () => {
       initialPort: null,
       isAlive,
       readPort,
+      probeHealth: alwaysHealthy,
       sleep: noopSleep,
     });
     expect(result).toEqual({ ok: true, port: 7777 });
@@ -108,6 +111,7 @@ describe("pollForDaemonReady", () => {
       readPid: () => 1,
       readPort: () => null,
       sleep: sleepSpy,
+      probeHealth: neverHealthy,
     });
     expect(sleepSpy).toHaveBeenCalledTimes(10);
   });
@@ -118,8 +122,8 @@ describe("pollForDaemonReady", () => {
       initialPort: 3417,
       isAlive: () => true,
       readPort: () => 3417,
+      probeHealth: alwaysHealthy,
       sleep: noopSleep,
-      probeHealth: () => Promise.resolve(true),
     });
     expect(result).toEqual({ ok: true, port: 3417 });
   });
@@ -131,8 +135,8 @@ describe("pollForDaemonReady", () => {
       isAlive: () => true,
       readPid: () => 99999,
       readPort: () => 3417,
+      probeHealth: alwaysHealthy,
       sleep: noopSleep,
-      probeHealth: () => Promise.resolve(true),
     });
     expect(result.ok).toBe(false);
   });

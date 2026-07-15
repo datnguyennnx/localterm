@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { serverToClientMessageSchema } from "../src/schemas.js";
-import { Session } from "../src/session.js";
+import { Session } from "../src/session/session.js";
 
 const waitFor = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
   Promise.race([

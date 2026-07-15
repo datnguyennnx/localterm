@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { createServer } from "../src/index.js";
+import { createServer } from "../src/server/index.js";
 
 describe("createServer", () => {
   it("reports the actual port selected for an ephemeral bind", async () => {

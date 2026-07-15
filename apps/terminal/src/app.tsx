@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Terminal } from "@/components/terminal";
+import { Terminal } from "@/features/terminal";
 
 export const App = () => {
   const isModalOpenRef = useRef(false);
@@ -8,11 +8,10 @@ export const App = () => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (isModalOpenRef.current) return;
       event.preventDefault();
+      event.returnValue = "";
     };
-    const armBeforeUnload = () => window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("keydown", armBeforeUnload, { once: true });
+    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      window.removeEventListener("keydown", armBeforeUnload);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);

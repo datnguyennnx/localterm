@@ -7,6 +7,8 @@ const colorForSeverity = (severity: CliError["severity"]): ((value: string) => s
       return kleur.red;
     case "warning":
       return kleur.yellow;
+    default:
+      return (value: string) => value;
   }
 };
 

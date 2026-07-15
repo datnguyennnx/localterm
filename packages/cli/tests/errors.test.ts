@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { EXIT_FAILURE, EXIT_OK, EXIT_USAGE_ERROR } from "../src/constants.js";
 import {
-  CliErrorException,
   cliError,
   exitCodeForCliError,
   formatCliError,
   hintForCliError,
-  isCliErrorException,
   type CliError,
 } from "../src/errors.js";
 
@@ -103,20 +101,4 @@ describe("exitCodeForCliError", () => {
   });
 });
 
-describe("CliErrorException", () => {
-  it("preserves the typed error and chains the cause", () => {
-    const cause = new Error("EADDRINUSE");
-    const exception = new CliErrorException(cliError.serverStartFailed(cause));
-    expect(exception).toBeInstanceOf(Error);
-    expect(exception.name).toBe("CliErrorException");
-    expect(exception.error.kind).toBe("server-start-failed");
-    expect(exception.cause).toBe(cause);
-  });
 
-  it("isCliErrorException narrows correctly", () => {
-    const exception = new CliErrorException(cliError.alreadyRunning(1, 3417));
-    expect(isCliErrorException(exception)).toBe(true);
-    expect(isCliErrorException(new Error("plain"))).toBe(false);
-    expect(isCliErrorException(null)).toBe(false);
-  });
-});

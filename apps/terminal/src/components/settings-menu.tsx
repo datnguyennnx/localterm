@@ -259,7 +259,7 @@ export const SettingsMenu = ({
               placeholder="Theme"
               onValueChange={handleThemeChange}
               onOpenChange={handleThemeSelectOpenChange}
-              onItemHover={onThemePreview ? (id) => onThemePreview(id) : undefined}
+              onItemHover={onThemePreview ?? undefined}
             />
           </Field>
 
@@ -275,7 +275,7 @@ export const SettingsMenu = ({
               open={isFontSelectOpen}
               onValueChange={handleFontChange}
               onOpenChange={handleFontSelectOpenChange}
-              onItemHover={onFontPreview ? (id) => onFontPreview(id) : undefined}
+              onItemHover={onFontPreview ?? undefined}
               footerSlot={
                 <button
                   type="button"

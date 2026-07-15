@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { MAX_PENDING_PARSE_BYTES } from "../src/constants.js";
-import { Osc7ChunkParser } from "../src/osc7-chunk-parser.js";
+import { Osc7ChunkParser } from "../src/parser/osc7-chunk-parser.js";
 
 describe("Osc7ChunkParser", () => {
   it("preserves BEL-terminated OSC 7 sequences across chunks", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { Osc133ChunkParser } from "../src/osc133-chunk-parser.js";
+import { Osc133ChunkParser } from "../src/parser/osc133-chunk-parser.js";
 
 describe("Osc133ChunkParser", () => {
   it("returns a boundary for a complete sequence in one chunk", () => {

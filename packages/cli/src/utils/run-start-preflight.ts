@@ -11,6 +11,7 @@ export const runStartPreflight = async (host: string): Promise<CliError | null> 
   if (existingPid && isAlive(existingPid)) {
     const verification = await verifyPidIsLocalterm(existingPid);
     if (verification === "not-ours") {
+      console.warn("pid file was claiming a non-localterm process; cleaned up");
       clearPid();
       return null;
     }

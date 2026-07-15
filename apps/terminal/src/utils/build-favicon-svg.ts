@@ -13,11 +13,12 @@ const ACTIVE_GLYPH = [
 ].join("");
 
 export const buildFaviconSvg = (hue: number, state: FaviconState): string => {
-  const fill = `hsl(${hue} 80% 62%)`;
+  const clampedHue = ((hue % 360) + 360) % 360;
+  const fill = `hsl(${clampedHue} 80% 62%)`;
   // Deep tonal companion of the hue: same hue, low lightness. Gives ~7:1+
   // contrast on every hue (neutral grey on yellow/cyan was muddy) and reads
   // as one coherent color rather than "icon + background".
-  const ink = `hsl(${hue} 85% 12%)`;
+  const ink = `hsl(${clampedHue} 85% 12%)`;
   const innerGlyph = state === "active" ? ACTIVE_GLYPH : IDLE_GLYPH;
   const opacity = state === "dead" ? FAVICON_DEAD_OPACITY : 1;
   return [

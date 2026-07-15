@@ -1,5 +1,11 @@
 # localterm-server
 
+## 0.0.16
+
+### Patch Changes
+
+- Major refactoring: restructure server into feature folders (agent/, session/, parser/, server/, utils/), merge duplicate OSC parsers into generic OscChunkParser<T>, consolidate strip-ansi into single-pass regex, fix ArrayBuffer pooled buffer corruption in output batcher, fix surrogate pair splitting across flush boundaries, fix agent RPC memory leak, replace unsafe `as` casts with Zod validation, add agent token caching, fix `pty.process` throw edge case, clean up dead code and enforce type safety across all modules
+
 ## 0.0.15
 
 ### Patch Changes

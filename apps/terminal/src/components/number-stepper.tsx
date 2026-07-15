@@ -73,7 +73,8 @@ export const NumberStepper = ({
     const deltaPixels = event.clientX - startX;
     const stepDelta = Math.round(deltaPixels / NUMBER_STEPPER_SCRUB_PIXELS_PER_STEP);
     if (stepDelta === 0) return;
-    onValueChange(dragStartValueRef.current + stepDelta * step);
+    const rawValue = dragStartValueRef.current + stepDelta * step;
+    onValueChange(Math.max(min, Math.min(max, rawValue)));
   };
 
   const endScrub = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -116,7 +117,7 @@ export const NumberStepper = ({
     const direction = KEYBOARD_DELTA_BY_KEY[event.key];
     if (direction === undefined) return;
     event.preventDefault();
-    onValueChange(value + direction * step);
+    onValueChange(Math.max(min, Math.min(max, value + direction * step)));
   };
 
   return (

@@ -51,7 +51,7 @@ export const fitTerminalPreservingScroll = (terminal: Terminal, fitAddon: FitAdd
       return true;
     }
 
-    const targetViewportY = afterBuffer.baseY - distanceFromBottom;
+    const targetViewportY = Math.max(0, afterBuffer.baseY - distanceFromBottom);
     const delta = targetViewportY - afterBuffer.viewportY;
     if (delta !== 0) terminal.scrollLines(delta);
   } catch {

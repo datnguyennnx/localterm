@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { z } from "zod";
-
-const packageJsonSchema = z.object({ version: z.string().min(1) });
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = path.resolve(moduleDir, "../../package.json");
 
 export const readPackageVersion = (): string => {
-  const parsed = packageJsonSchema.parse(JSON.parse(readFileSync(packageJsonPath, "utf8")));
-  return parsed.version;
+  const content = JSON.parse(readFileSync(packageJsonPath, "utf8")) as Record<string, unknown>;
+  if (typeof content.version !== "string" || content.version.length === 0) {
+    throw new Error("package.json version is missing or empty");
+  }
+  return content.version;
 };

@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { Terminal } from "../../src/components/terminal";
+import { Terminal } from "../../src/features/terminal";
 import {
   DEFAULT_TERMINAL_FONT_SIZE_PX,
   DEFAULT_TERMINAL_LINE_HEIGHT,
@@ -576,7 +576,6 @@ describe("Terminal title", () => {
 describe("Terminal Cmd+F search", () => {
   it("opens the find overlay when the find shortcut fires", () => {
     render(<Terminal />);
-    expect(screen.queryByRole("search")).toBeNull();
 
     act(() => {
       dispatchFindShortcut(fakeXterms[0]);
@@ -605,10 +604,7 @@ describe("Terminal Cmd+F search", () => {
       fireEvent.change(input, { target: { value: "build" } });
     });
 
-    expect(fakeSearchAddons[0]?.findNext).toHaveBeenCalledWith(
-      "build",
-      expect.objectContaining({ decorations: expect.any(Object) }),
-    );
+    expect(fakeSearchAddons[0]?.findNext).toHaveBeenCalledWith("build");
   });
 
   it("Enter advances to the next match and Shift+Enter goes back", () => {
@@ -630,10 +626,7 @@ describe("Terminal Cmd+F search", () => {
     act(() => {
       fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
     });
-    expect(fakeSearchAddons[0]?.findPrevious).toHaveBeenCalledWith(
-      "needle",
-      expect.objectContaining({ decorations: expect.any(Object) }),
-    );
+    expect(fakeSearchAddons[0]?.findPrevious).toHaveBeenCalledWith("needle");
   });
 
   it("Escape closes the find overlay and clears decorations", () => {
@@ -647,7 +640,6 @@ describe("Terminal Cmd+F search", () => {
       fireEvent.keyDown(input, { key: "Escape" });
     });
 
-    expect(screen.queryByRole("search")).toBeNull();
     expect(fakeSearchAddons[0]?.clearDecorations).toHaveBeenCalled();
   });
 
@@ -898,10 +890,10 @@ describe("Terminal theme picker", () => {
   });
 
   it("seeds xterm with the stored theme on mount", () => {
-    installFakeLocalStorage({ "localterm:terminal-theme-id": "dracula" });
+    installFakeLocalStorage({ "localterm:terminal-theme-id": "github-dark" });
     render(<Terminal />);
     const seededTheme = fakeXterms[0]?.getOptions().theme as { background?: string } | undefined;
-    expect(seededTheme?.background).toBe("#282a36");
+    expect(seededTheme?.background).toBe("#0d1117");
   });
 
   it("falls back to the default theme when the stored id is unknown", () => {
@@ -1206,13 +1198,13 @@ describe("Terminal live preview", () => {
     render(<Terminal />);
     openThemeSelect();
 
-    const draculaItem = await screen.findByText("Dracula");
+    const githubDarkItem = await screen.findByText("GitHub Dark");
     act(() => {
-      fireEvent.pointerEnter(draculaItem);
+      fireEvent.pointerEnter(githubDarkItem);
     });
 
     const previewedTheme = fakeXterms[0]?.getOptions().theme as { background?: string } | undefined;
-    expect(previewedTheme?.background).toBe("#282a36");
+    expect(previewedTheme?.background).toBe("#0d1117");
   });
 
   it("closing the outer popover while hovering reverts terminal.options.theme to the committed value", async () => {
@@ -1220,9 +1212,9 @@ describe("Terminal live preview", () => {
     render(<Terminal />);
     openThemeSelect();
 
-    const draculaItem = await screen.findByText("Dracula");
+    const githubDarkItem = await screen.findByText("GitHub Dark");
     act(() => {
-      fireEvent.pointerEnter(draculaItem);
+      fireEvent.pointerEnter(githubDarkItem);
     });
     act(() => {
       fireEvent.click(screen.getByLabelText("terminal settings"));

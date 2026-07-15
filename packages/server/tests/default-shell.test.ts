@@ -1,6 +1,6 @@
 import os from "node:os";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { getDefaultShell } from "../src/default-shell.js";
+import { getDefaultShell } from "../src/session/default-shell.js";
 
 afterEach(() => {
   vi.unstubAllEnvs();

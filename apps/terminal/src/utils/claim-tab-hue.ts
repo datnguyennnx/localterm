@@ -43,10 +43,13 @@ const ensureBroadcastChannel = (): BroadcastChannel | null => {
  * Browsers copy `sessionStorage` into duplicated tabs, which means the new tab
  * inherits the parent's favicon hue verbatim. Detect that by pinging peers with
  * our hue; if anyone responds with the same hue, regenerate locally.
+ *
+ * Returns a cleanup function that closes the BroadcastChannel and clears
+ * module-level state. Call during unmount / teardown.
  */
-export const claimTabHue = (): void => {
+export const claimTabHue = (): (() => void) => {
   const channel = ensureBroadcastChannel();
-  if (!channel || !selfTabId) return;
+  if (!channel || !selfTabId) return () => {};
 
   const proposedHue = getCachedHue();
   const collidingHues = new Set<number>();
@@ -65,7 +68,7 @@ export const claimTabHue = (): void => {
     hue: proposedHue,
   } satisfies FaviconBroadcastMessage);
 
-  setTimeout(() => {
+  const timeoutId = setTimeout(() => {
     channel.removeEventListener("message", handleResponse);
     if (collidingHues.size === 0) return;
     const freshHue = pickFreshHueAvoiding([...collidingHues]);
@@ -73,4 +76,12 @@ export const claimTabHue = (): void => {
     replaceHue(freshHue);
     setTabFaviconState("idle");
   }, FAVICON_COLLISION_RESOLVE_TIMEOUT_MS);
+
+  return () => {
+    clearTimeout(timeoutId);
+    channel.removeEventListener("message", handleResponse);
+    broadcastChannel?.close();
+    broadcastChannel = null;
+    selfTabId = null;
+  };
 };

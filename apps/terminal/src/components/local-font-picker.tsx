@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { type CSSProperties, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -51,10 +51,10 @@ interface ManualFamilyInputProps {
 const ManualFamilyInput = ({ initialValue, onApply }: ManualFamilyInputProps) => {
   const [draft, setDraft] = useState(initialValue);
   const trimmed = draft.trim();
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (!trimmed) return;
     onApply(trimmed);
-  };
+  }, [trimmed, onApply]);
   return (
     <div className="flex flex-col gap-1.5">
       <Input
@@ -142,7 +142,7 @@ export const LocalFontPicker = ({
   const filteredFamilies = useMemo(() => {
     if (state.kind !== "ready") return [];
     return filterFamilies(state.families, deferredQuery);
-  }, [state, deferredQuery]);
+  }, [state.kind, state.kind === "ready" ? state.families : undefined, deferredQuery]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,8 +1,8 @@
 import kleur from "kleur";
 import { healthSchema } from "@datnguyennnx/localterm-server";
-import { getFriendlyUrl } from "../constants.js";
 import { cliError } from "../errors.js";
 import { isAlive, readPid, readPort } from "../state.js";
+import { getFriendlyUrl } from "../utils/get-friendly-url.js";
 import { reportCliError } from "../utils/report-cli-error.js";
 
 export const runStatus = async (): Promise<void> => {

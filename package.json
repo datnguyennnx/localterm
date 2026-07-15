@@ -12,6 +12,8 @@
     "benchmark:output": "node scripts/benchmark-output-pipeline.mjs",
     "dev": "turbo run dev --parallel",
     "start": "node packages/cli/bin/localterm.mjs stop && node packages/cli/bin/localterm.mjs start",
+    "start:dev": "node packages/cli/bin/localterm.mjs stop && node packages/cli/bin/localterm.mjs start",
+    "dev:all": "node packages/cli/bin/localterm.mjs stop && node packages/cli/bin/localterm.mjs start --foreground & sleep 2 && turbo run dev --parallel && kill %1",
     "cli": "node packages/cli/bin/localterm.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
