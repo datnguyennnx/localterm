@@ -58,7 +58,8 @@ describe("parseOsc133FromChunk", () => {
   });
 
   it("handles mixed content with multiple sequences", () => {
-    const chunk = "before\x1b]133;A\x07prompt\x1b]133;B\x07ls -la\r\n\x1b]133;C\x07file1  file2\r\n\x1b]133;D;0\x07after";
+    const chunk =
+      "before\x1b]133;A\x07prompt\x1b]133;B\x07ls -la\r\n\x1b]133;C\x07file1  file2\r\n\x1b]133;D;0\x07after";
     const result = parseOsc133FromChunk(chunk);
     expect(result).toEqual({ phase: "command-end", exitCode: 0 });
   });

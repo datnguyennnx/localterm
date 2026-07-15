@@ -10,9 +10,7 @@ export type DaemonSpawnResult =
   | { ok: true; port: number; pid: number; logPath: string }
   | { ok: false; error: CliError };
 
-export const spawnDaemonAndWait = async (
-  args: string[],
-): Promise<DaemonSpawnResult> => {
+export const spawnDaemonAndWait = async (args: string[]): Promise<DaemonSpawnResult> => {
   const portBeforeSpawn = readPort();
   const logPath = ensureLogFile();
   const logFd = openSync(logPath, "a");

@@ -9,31 +9,41 @@ import { SessionRegistry } from "../session/session-registry.js";
 
 // ─── RPC parameter schemas ───────────────────────────────────────────────────
 
-const SpawnSessionParamsSchema = z.object({
-  cwd: z.string().optional(),
-  shell: z.string().optional(),
-}).strict();
+const SpawnSessionParamsSchema = z
+  .object({
+    cwd: z.string().optional(),
+    shell: z.string().optional(),
+  })
+  .strict();
 
-const WriteInputParamsSchema = z.object({
-  sessionId: z.string().min(1),
-  data: z.string(),
-}).strict();
+const WriteInputParamsSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    data: z.string(),
+  })
+  .strict();
 
-const ReadOutputParamsSchema = z.object({
-  sessionId: z.string().min(1),
-  sinceOffset: z.number().optional(),
-}).strict();
+const ReadOutputParamsSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    sinceOffset: z.number().optional(),
+  })
+  .strict();
 
-const WaitForBoundaryParamsSchema = z.object({
-  sessionId: z.string().min(1),
-  timeoutMs: z.number().optional(),
-}).strict();
+const WaitForBoundaryParamsSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    timeoutMs: z.number().optional(),
+  })
+  .strict();
 
-const ExecParamsSchema = z.object({
-  sessionId: z.string().min(1),
-  command: z.string().min(1),
-  timeoutMs: z.number().optional(),
-}).strict();
+const ExecParamsSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    command: z.string().min(1),
+    timeoutMs: z.number().optional(),
+  })
+  .strict();
 
 // ─── Why WS-RPC instead of HTTP ─────────────────────────────────────────────
 // WebSocket is already the single transport for terminal I/O.  Adding a second
@@ -70,10 +80,7 @@ export interface RpcRequest {
   params?: Record<string, unknown>;
 }
 
-export const handleRpcRequest = (
-  ctx: RpcContext,
-  request: RpcRequest,
-): void => {
+export const handleRpcRequest = (ctx: RpcContext, request: RpcRequest): void => {
   const { id, method, params } = request;
   try {
     switch (method) {
@@ -98,11 +105,7 @@ export const handleRpcRequest = (
   }
 };
 
-const handleSpawnSession = (
-  ctx: RpcContext,
-  id: string,
-  params: Record<string, unknown>,
-): void => {
+const handleSpawnSession = (ctx: RpcContext, id: string, params: Record<string, unknown>): void => {
   const { cwd, shell } = SpawnSessionParamsSchema.parse(params);
   const sessionId = randomUUID();
 
@@ -148,10 +151,7 @@ const handleSpawnSession = (
   });
 };
 
-const handleListSessions = (
-  ctx: RpcContext,
-  id: string,
-): void => {
+const handleListSessions = (ctx: RpcContext, id: string): void => {
   const sessions = Array.from(activeSessions.values()).map((m) => ({
     id: m.id,
     cwd: m.session.cwd,
@@ -162,11 +162,7 @@ const handleListSessions = (
   ctx.sendResponse(id, { sessions });
 };
 
-const handleWriteInput = (
-  ctx: RpcContext,
-  id: string,
-  params: Record<string, unknown>,
-): void => {
+const handleWriteInput = (ctx: RpcContext, id: string, params: Record<string, unknown>): void => {
   const { sessionId, data } = WriteInputParamsSchema.parse(params);
   const managed = activeSessions.get(sessionId);
   if (!managed) {
@@ -181,11 +177,7 @@ const handleWriteInput = (
   ctx.sendResponse(id, { ok: true });
 };
 
-const handleReadOutput = (
-  ctx: RpcContext,
-  id: string,
-  params: Record<string, unknown>,
-): void => {
+const handleReadOutput = (ctx: RpcContext, id: string, params: Record<string, unknown>): void => {
   const { sessionId, sinceOffset } = ReadOutputParamsSchema.parse(params);
   const managed = activeSessions.get(sessionId);
   if (!managed) {
@@ -255,11 +247,7 @@ const handleWaitForBoundary = (
   managed.session.on("commandBoundary", handler);
 };
 
-const handleExec = (
-  ctx: RpcContext,
-  id: string,
-  params: Record<string, unknown>,
-): void => {
+const handleExec = (ctx: RpcContext, id: string, params: Record<string, unknown>): void => {
   const { sessionId, command, timeoutMs } = ExecParamsSchema.parse(params);
   const managed = activeSessions.get(sessionId);
   if (!managed) {

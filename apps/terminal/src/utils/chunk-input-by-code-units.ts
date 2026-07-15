@@ -13,7 +13,10 @@ export const chunkInputByCodeUnits = (data: string, maxLength: number): string[]
     let end = Math.min(cursor + maxLength, data.length);
     if (end < data.length) {
       const lastCodeUnit = data.charCodeAt(end - 1);
-      if (lastCodeUnit >= UNICODE_HIGH_SURROGATE_MIN && lastCodeUnit <= UNICODE_HIGH_SURROGATE_MAX) {
+      if (
+        lastCodeUnit >= UNICODE_HIGH_SURROGATE_MIN &&
+        lastCodeUnit <= UNICODE_HIGH_SURROGATE_MAX
+      ) {
         end -= 1;
       }
     }

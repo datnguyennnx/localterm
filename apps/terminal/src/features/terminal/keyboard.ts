@@ -73,10 +73,7 @@ export interface KeyHandlerDeps {
   isTouchDevice: boolean;
 }
 
-export const attachCustomKeyHandler = (
-  terminal: Terminal,
-  deps: KeyHandlerDeps,
-): void => {
+export const attachCustomKeyHandler = (terminal: Terminal, deps: KeyHandlerDeps): void => {
   terminal.attachCustomKeyEventHandler((event) => {
     if (event.key === "Tab" && (event.metaKey || event.ctrlKey)) return false;
     if (isFindShortcut(event, deps.isMac)) {

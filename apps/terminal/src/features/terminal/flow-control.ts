@@ -57,7 +57,10 @@ export const createFlowController = (deps: FlowControllerDeps): FlowController =
     });
     pendingCallbacks++;
 
-    if (prevWritten < FLOW_CALLBACK_BYTE_LIMIT && writtenSinceLastCallback >= FLOW_CALLBACK_BYTE_LIMIT) {
+    if (
+      prevWritten < FLOW_CALLBACK_BYTE_LIMIT &&
+      writtenSinceLastCallback >= FLOW_CALLBACK_BYTE_LIMIT
+    ) {
       writtenSinceLastCallback = 0;
     }
   };

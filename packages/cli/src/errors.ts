@@ -1,9 +1,4 @@
-import {
-  EXIT_FAILURE,
-  EXIT_OK,
-  EXIT_USAGE_ERROR,
-  STOP_COMMAND,
-} from "./constants.js";
+import { EXIT_FAILURE, EXIT_OK, EXIT_USAGE_ERROR, STOP_COMMAND } from "./constants.js";
 import { getFriendlyUrl } from "./utils/get-friendly-url.js";
 
 interface InvalidPortError {
@@ -267,4 +262,3 @@ export const exitCodeForCliError = (error: CliError): number => {
       return exhaustivenessGuard(error);
   }
 };
-

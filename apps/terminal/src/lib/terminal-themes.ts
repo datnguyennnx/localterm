@@ -97,11 +97,7 @@ const GITHUB_LIGHT: TerminalTheme = {
   },
 };
 
-export const TERMINAL_THEMES: TerminalTheme[] = [
-  VESPER,
-  GITHUB_DARK,
-  GITHUB_LIGHT,
-];
+export const TERMINAL_THEMES: TerminalTheme[] = [VESPER, GITHUB_DARK, GITHUB_LIGHT];
 
 export const DEFAULT_TERMINAL_THEME_ID: string = VESPER.id;
 

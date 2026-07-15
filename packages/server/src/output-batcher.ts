@@ -15,10 +15,7 @@ export class OutputBatcher {
     this.chunks.push(data);
     this.bufferedBytes += Buffer.byteLength(data);
     this.lastEndedWithHighSurrogate = TRAILING_HIGH_SURROGATE_PATTERN.test(data);
-    if (
-      this.bufferedBytes >= OUTPUT_BATCH_MAX_BYTES &&
-      !this.lastEndedWithHighSurrogate
-    ) {
+    if (this.bufferedBytes >= OUTPUT_BATCH_MAX_BYTES && !this.lastEndedWithHighSurrogate) {
       this.flush();
       return;
     }

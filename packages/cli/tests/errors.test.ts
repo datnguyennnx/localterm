@@ -100,5 +100,3 @@ describe("exitCodeForCliError", () => {
     expect(exitCodeForCliError(cliError.signalFailed(1, new Error("x")))).toBe(EXIT_FAILURE);
   });
 });
-
-

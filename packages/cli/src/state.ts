@@ -1,11 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { getLogFile, getPidFile, getPortFile, getStateDirectory } from "./paths.js";
 
 export const ensureStateDirectory = (): void => {

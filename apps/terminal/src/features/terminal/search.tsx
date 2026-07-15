@@ -50,11 +50,7 @@ export const SearchOverlay = ({
         className="text-xs"
       />
       <InputGroupAddon align="inline-end">
-        <InputGroupText
-          role="status"
-          aria-label="match count"
-          className="text-xs tabular-nums"
-        >
+        <InputGroupText role="status" aria-label="match count" className="text-xs tabular-nums">
           {matchLabel}
         </InputGroupText>
         <InputGroupButton

@@ -55,7 +55,10 @@ import {
   storeTerminalScrollOnUserInput,
   storeTerminalThemeId,
 } from "@/utils/storage-slots";
-import { MAX_INPUT_BYTES, type ClientToServerMessage } from "@datnguyennnx/localterm-server/protocol";
+import {
+  MAX_INPUT_BYTES,
+  type ClientToServerMessage,
+} from "@datnguyennnx/localterm-server/protocol";
 import "@xterm/xterm/css/xterm.css";
 import type { ExitInfo, TerminalProps } from "./types";
 import { buildNewTabUrl, buildWebSocketUrl } from "./types";
@@ -313,35 +316,47 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
         };
         visualViewport.addEventListener("resize", handleViewportResize, { signal });
       }
-      terminal.element?.addEventListener("touchstart", (event: TouchEvent) => {
-        if (event.touches.length !== 1) {
-          didTapMoveBeyondThreshold = true;
-          return;
-        }
-        tapStartClientX = event.touches[0].clientX;
-        tapStartClientY = event.touches[0].clientY;
-        didTapMoveBeyondThreshold = false;
-      }, { capture: true, passive: true, signal });
-      terminal.element?.addEventListener("touchmove", (event: TouchEvent) => {
-        if (event.touches.length !== 1) {
-          didTapMoveBeyondThreshold = true;
-          return;
-        }
-        const movedPx = Math.hypot(
-          event.touches[0].clientX - tapStartClientX,
-          event.touches[0].clientY - tapStartClientY,
-        );
-        if (movedPx > TERMINAL_TAP_MOVEMENT_THRESHOLD_PX) {
-          didTapMoveBeyondThreshold = true;
-        }
-      }, { capture: true, passive: true, signal });
-      terminal.element?.addEventListener("touchend", (event: TouchEvent) => {
-        if (didTapMoveBeyondThreshold) {
-          event.preventDefault();
-          return;
-        }
-        focusTerminalForInput();
-      }, { capture: true, passive: false, signal });
+      terminal.element?.addEventListener(
+        "touchstart",
+        (event: TouchEvent) => {
+          if (event.touches.length !== 1) {
+            didTapMoveBeyondThreshold = true;
+            return;
+          }
+          tapStartClientX = event.touches[0].clientX;
+          tapStartClientY = event.touches[0].clientY;
+          didTapMoveBeyondThreshold = false;
+        },
+        { capture: true, passive: true, signal },
+      );
+      terminal.element?.addEventListener(
+        "touchmove",
+        (event: TouchEvent) => {
+          if (event.touches.length !== 1) {
+            didTapMoveBeyondThreshold = true;
+            return;
+          }
+          const movedPx = Math.hypot(
+            event.touches[0].clientX - tapStartClientX,
+            event.touches[0].clientY - tapStartClientY,
+          );
+          if (movedPx > TERMINAL_TAP_MOVEMENT_THRESHOLD_PX) {
+            didTapMoveBeyondThreshold = true;
+          }
+        },
+        { capture: true, passive: true, signal },
+      );
+      terminal.element?.addEventListener(
+        "touchend",
+        (event: TouchEvent) => {
+          if (didTapMoveBeyondThreshold) {
+            event.preventDefault();
+            return;
+          }
+          focusTerminalForInput();
+        },
+        { capture: true, passive: false, signal },
+      );
     }
 
     // Kitty keyboard protocol
@@ -349,7 +364,10 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
 
     // Scrollback purge protection
     terminal.parser.registerCsiHandler({ final: "J" }, shouldBlockTerminalScrollbackPurge);
-    terminal.parser.registerCsiHandler({ prefix: "?", final: "J" }, shouldBlockTerminalScrollbackPurge);
+    terminal.parser.registerCsiHandler(
+      { prefix: "?", final: "J" },
+      shouldBlockTerminalScrollbackPurge,
+    );
 
     // Scroll manager
     const scrollManager = createScrollManager({
@@ -456,7 +474,12 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
           return;
         }
         // Lightweight structural check instead of Zod safeParse
-        if (typeof raw !== "object" || raw === null || typeof (raw as Record<string, unknown>).type !== "string") return;
+        if (
+          typeof raw !== "object" ||
+          raw === null ||
+          typeof (raw as Record<string, unknown>).type !== "string"
+        )
+          return;
         const message = raw as ServerToClientMessage;
         if (message.type === "output") {
           flowController.write(message.data);

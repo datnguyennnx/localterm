@@ -43,11 +43,7 @@ const JETBRAINS_MONO: TerminalFont = {
   source: "google",
 };
 
-export const TERMINAL_FONTS: TerminalFont[] = [
-  BROWSER_NATIVE,
-  GEIST_MONO,
-  JETBRAINS_MONO,
-];
+export const TERMINAL_FONTS: TerminalFont[] = [BROWSER_NATIVE, GEIST_MONO, JETBRAINS_MONO];
 
 export const DEFAULT_TERMINAL_FONT_ID: string = GEIST_MONO.id;
 

@@ -96,18 +96,23 @@ See root `package.json` scripts for the full list. Quick reference:
 ### Publishing to npm
 
 1. **Create a changeset** describing the change:
+
    ```bash
    pnpm changeset
    ```
+
    Follow the prompts — selects which packages to version and writes a summary to `.changeset/*.md`.
 
 2. **Version bump**:
+
    ```bash
    pnpm changeset version
    ```
+
    This consumes the changeset file, bumps versions in `package.json`, and updates `CHANGELOG.md` for each published package.
 
 3. **Commit the version bump**:
+
    ```bash
    git add -A
    git commit -m "chore: bump version to X.Y.Z"

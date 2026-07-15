@@ -23,15 +23,11 @@ vi.mock("node:fs", () => ({
   openSync: mockOpenSync,
 }));
 
-const { spawnDaemon: spawnDaemonOriginal } = await import(
-  "../../src/utils/spawn-daemon.js"
-);
-const { pollForDaemonReady: pollForDaemonReadyOriginal } = await import(
-  "../../src/utils/poll-for-daemon-ready.js"
-);
-const { ensureLogFile: ensureLogFileOriginal, readPort: readPortOriginal } = await import(
-  "../../src/state.js"
-);
+const { spawnDaemon: spawnDaemonOriginal } = await import("../../src/utils/spawn-daemon.js");
+const { pollForDaemonReady: pollForDaemonReadyOriginal } =
+  await import("../../src/utils/poll-for-daemon-ready.js");
+const { ensureLogFile: ensureLogFileOriginal, readPort: readPortOriginal } =
+  await import("../../src/state.js");
 const spawnDaemon = vi.mocked(spawnDaemonOriginal);
 const pollForDaemonReady = vi.mocked(pollForDaemonReadyOriginal);
 const ensureLogFile = vi.mocked(ensureLogFileOriginal);
@@ -112,9 +108,7 @@ describe("spawnDaemonAndWait", () => {
 
     await spawnDaemonAndWait(["start"]);
 
-    expect(pollForDaemonReady).toHaveBeenCalledWith(
-      expect.objectContaining({ initialPort: 3417 }),
-    );
+    expect(pollForDaemonReady).toHaveBeenCalledWith(expect.objectContaining({ initialPort: 3417 }));
   });
 
   it("passes the log fd value to spawnDaemon", async () => {

@@ -36,15 +36,13 @@ describe("extractKeyboardModifiers", () => {
   });
 
   it("combines shift+alt bits (1 | 2 = 3)", () => {
-    expect(
-      extractKeyboardModifiers(createKeyboardEvent({ shiftKey: true, altKey: true })),
-    ).toBe(3);
+    expect(extractKeyboardModifiers(createKeyboardEvent({ shiftKey: true, altKey: true }))).toBe(3);
   });
 
   it("combines ctrl+meta bits (4 | 8 = 12)", () => {
-    expect(
-      extractKeyboardModifiers(createKeyboardEvent({ ctrlKey: true, metaKey: true })),
-    ).toBe(12);
+    expect(extractKeyboardModifiers(createKeyboardEvent({ ctrlKey: true, metaKey: true }))).toBe(
+      12,
+    );
   });
 
   it("combines all four modifiers (1 | 2 | 4 | 8 = 15)", () => {

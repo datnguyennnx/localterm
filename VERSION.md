@@ -13,6 +13,7 @@ pnpm changeset
 ```
 
 Follow the prompts:
+
 - Select which packages changed
 - Choose bump type (patch/minor/major)
 - Write a summary of what changed
@@ -26,6 +27,7 @@ pnpm changeset version
 ```
 
 This:
+
 - Reads all pending changeset files and deletes them
 - Bumps version in `package.json` for affected packages
 - Updates `CHANGELOG.md` for each affected package with the changeset summary
@@ -48,11 +50,11 @@ Requires `npm login` and npm token configured.
 
 ## Version strategy
 
-| Bump | When | Example |
-|------|------|---------|
+| Bump    | When                                     | Example         |
+| ------- | ---------------------------------------- | --------------- |
 | `patch` | Bug fixes, refactoring, internal cleanup | 0.0.15 → 0.0.16 |
-| `minor` | New features, public API additions | 0.0.16 → 0.1.0 |
-| `major` | Breaking changes | 0.1.0 → 1.0.0 |
+| `minor` | New features, public API additions       | 0.0.16 → 0.1.0  |
+| `major` | Breaking changes                         | 0.1.0 → 1.0.0   |
 
 ## Package pairing
 
@@ -67,18 +69,23 @@ Changelogs are auto-generated from changeset summaries. Group changes under clea
 ## 0.0.17
 
 ### Breaking
+
 - description
 
 ### Features
+
 - description
 
 ### Bug Fixes
+
 - description
 
 ### Performance
+
 - description
 
 ### Refactoring
+
 - description
 ```
 

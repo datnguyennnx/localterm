@@ -11,10 +11,7 @@ export const estimateBytes = (data: string | Uint8Array): number =>
 
 // ── Session helpers ───────────────────────────────────────────────────────────
 
-import {
-  DEAD_SESSION_TITLE_PREFIX,
-  DEFAULT_DOCUMENT_TITLE,
-} from "@/lib/constants";
+import { DEAD_SESSION_TITLE_PREFIX, DEFAULT_DOCUMENT_TITLE } from "@/lib/constants";
 
 export const titleForLiveSession = (raw: string): string => raw || DEFAULT_DOCUMENT_TITLE;
 

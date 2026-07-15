@@ -23,63 +23,63 @@ All numbers are from the `OutputBatcher` class (server-side batching only — no
 
 Simulates 120 single-character writes at 4ms intervals (interactive typing).
 
-| Metric | Value |
-|---|---|
-| Duration | 508.93 ms |
-| Output frames | 120 |
-| Output bytes | 120 B |
-| Latency p50 | 2.33 ms |
-| Latency p95 | 2.40 ms |
-| Event loop mean | 1.14 ms |
-| Event loop p99 | 1.25 ms |
-| Heap delta | +432 kB |
+| Metric          | Value     |
+| --------------- | --------- |
+| Duration        | 508.93 ms |
+| Output frames   | 120       |
+| Output bytes    | 120 B     |
+| Latency p50     | 2.33 ms   |
+| Latency p95     | 2.40 ms   |
+| Event loop mean | 1.14 ms   |
+| Event loop p99  | 1.25 ms   |
+| Heap delta      | +432 kB   |
 
 ### tui-redraw
 
 Simulates 240 redraw frames of 4 KB each (TUI-like full-screen repaints).
 
-| Metric | Value |
-|---|---|
-| Duration | 15.01 ms |
-| Output frames | 15 |
-| Output bytes | 960 kB |
-| Latency p50 | 0.35 ms |
-| Latency p95 | 0.81 ms |
-| Event loop mean | 1.12 ms |
-| Event loop p99 | 1.86 ms |
-| Heap delta | +451 kB |
+| Metric          | Value    |
+| --------------- | -------- |
+| Duration        | 15.01 ms |
+| Output frames   | 15       |
+| Output bytes    | 960 kB   |
+| Latency p50     | 0.35 ms  |
+| Latency p95     | 0.81 ms  |
+| Event loop mean | 1.12 ms  |
+| Event loop p99  | 1.86 ms  |
+| Heap delta      | +451 kB  |
 
 ### large-burst
 
 Simulates 16 MB of contiguous output pushed as fast as possible (e.g. `cat` of a large file).
 
-| Metric | Value |
-|---|---|
-| Duration | 16.84 ms |
-| Output frames | 256 |
-| Output bytes | 16 MB |
-| Latency p50 | 0.02 ms |
-| Latency p95 | 0.07 ms |
-| Event loop mean | 1.15 ms |
-| Event loop p99 | 1.16 ms |
-| Heap delta | -106 kB |
+| Metric          | Value    |
+| --------------- | -------- |
+| Duration        | 16.84 ms |
+| Output frames   | 256      |
+| Output bytes    | 16 MB    |
+| Latency p50     | 0.02 ms  |
+| Latency p95     | 0.07 ms  |
+| Event loop mean | 1.15 ms  |
+| Event loop p99  | 1.16 ms  |
+| Heap delta      | -106 kB  |
 
 ### constrained-drain
 
 Simulates 4 MB output with a constrained drain (16 KB per 1 ms tick) — models backpressure.
 
-| Metric | Value |
-|---|---|
-| Duration | 297.44 ms |
-| Producer duration | 10.00 ms |
-| Output frames | 64 |
-| Output bytes | 4 MB |
-| Latency p50 | 0.02 ms |
-| Latency p95 | 0.05 ms |
-| Event loop mean | 1.17 ms |
-| Event loop p99 | 1.18 ms |
-| Peak queued bytes | 4 MB |
-| Heap delta | -677 kB |
+| Metric            | Value     |
+| ----------------- | --------- |
+| Duration          | 297.44 ms |
+| Producer duration | 10.00 ms  |
+| Output frames     | 64        |
+| Output bytes      | 4 MB      |
+| Latency p50       | 0.02 ms   |
+| Latency p95       | 0.05 ms   |
+| Event loop mean   | 1.17 ms   |
+| Event loop p99    | 1.18 ms   |
+| Peak queued bytes | 4 MB      |
+| Heap delta        | -677 kB   |
 
 ## Post-Phase-1 Results (Client-Side Flow Control)
 
@@ -100,17 +100,17 @@ Client-side changes (flow control, new WS message types) are verified via unit t
 
 Numbers are unchanged from baseline because the benchmark exercises the server-side `OutputBatcher` only, which was not modified. Client-side flow control is tested via unit tests, not this benchmark.
 
-| Metric | Baseline | Post-Phase-1 | Delta |
-|--------|----------|--------------|-------|
-| Interactive echo latency p95 | 2.40 ms | 2.36 ms | -1.7% (noise) |
-| TUI redraw duration | 15.01 ms | 12.21 ms | -18.7% (noise) |
-| Large burst duration | 16.84 ms | 11.35 ms | -32.6% (noise) |
-| Constrained drain duration | 297.44 ms | 290.25 ms | -2.4% (noise) |
-| All tests | 227 pass | 231 pass | +4 flow schema tests |
+| Metric                       | Baseline  | Post-Phase-1 | Delta                |
+| ---------------------------- | --------- | ------------ | -------------------- |
+| Interactive echo latency p95 | 2.40 ms   | 2.36 ms      | -1.7% (noise)        |
+| TUI redraw duration          | 15.01 ms  | 12.21 ms     | -18.7% (noise)       |
+| Large burst duration         | 16.84 ms  | 11.35 ms     | -32.6% (noise)       |
+| Constrained drain duration   | 297.44 ms | 290.25 ms    | -2.4% (noise)        |
+| All tests                    | 227 pass  | 231 pass     | +4 flow schema tests |
 
 ## Post-Phase-2 Results (Agent Mode)
 
-*To be filled after Phase 2 implementation.*
+_To be filled after Phase 2 implementation._
 
 ## Final Results (Post-Phase-5)
 
@@ -120,26 +120,26 @@ Final benchmark run after all 5 phases implemented.
 
 All measurements from `node scripts/benchmark-output-pipeline.mjs`.
 
-*Note: The benchmark exercises the server-side `OutputBatcher` only. Client-side improvements (flow control, agent-mode paths, RPC handlers) are verified via unit tests (369 total, all passing).*
+_Note: The benchmark exercises the server-side `OutputBatcher` only. Client-side improvements (flow control, agent-mode paths, RPC handlers) are verified via unit tests (369 total, all passing)._
 
-| Scenario | Baseline | Post-Phase-5 | Delta |
-|----------|----------|--------------|-------|
-| Interactive echo duration | 508.93 ms | 544.27 ms | +6.9% (noise) |
-| TUI redraw duration | 15.01 ms | 13.73 ms | -8.6% (noise) |
-| Large burst duration | 16.84 ms | 15.43 ms | -8.4% (noise) |
-| Constrained drain duration | 297.44 ms | 325.04 ms | +9.3% (noise) |
+| Scenario                   | Baseline  | Post-Phase-5 | Delta         |
+| -------------------------- | --------- | ------------ | ------------- |
+| Interactive echo duration  | 508.93 ms | 544.27 ms    | +6.9% (noise) |
+| TUI redraw duration        | 15.01 ms  | 13.73 ms     | -8.6% (noise) |
+| Large burst duration       | 16.84 ms  | 15.43 ms     | -8.4% (noise) |
+| Constrained drain duration | 297.44 ms | 325.04 ms    | +9.3% (noise) |
 
 All deltas are within expected noise for a single-machine benchmark. No regression detected.
 
 ### Test Suite Growth
 
-| Metric | Baseline | Final | Delta |
-|--------|----------|-------|-------|
-| Server test files | 12 | 15 | +3 |
-| Server tests | 91 | 138 | +47 |
-| Terminal test files | 27 | 27 | — |
-| Terminal tests | 231 | 231 | — |
-| Total tests | 322 | 369 | +47 |
+| Metric              | Baseline | Final | Delta |
+| ------------------- | -------- | ----- | ----- |
+| Server test files   | 12       | 15    | +3    |
+| Server tests        | 91       | 138   | +47   |
+| Terminal test files | 27       | 27    | —     |
+| Terminal tests      | 231      | 231   | —     |
+| Total tests         | 322      | 369   | +47   |
 
 ### Architecture Summary After All Phases
 
@@ -171,10 +171,10 @@ Protocol (packages/server)
 
 ### Key Configuration
 
-| Setting | Default | Configurable | CLI Flag |
-|---------|---------|-------------|----------|
-| Port | 3417 | Yes | `-p, --port` |
-| Host | 127.0.0.1 | Yes | `-H, --host` |
-| Max concurrent sessions | 64 | Yes | `--max-sessions` |
-| Agent destructive commands | Denied | Yes | `--yolo` |
-| Agent token | Auto-generated | Auto | — |
+| Setting                    | Default        | Configurable | CLI Flag         |
+| -------------------------- | -------------- | ------------ | ---------------- |
+| Port                       | 3417           | Yes          | `-p, --port`     |
+| Host                       | 127.0.0.1      | Yes          | `-H, --host`     |
+| Max concurrent sessions    | 64             | Yes          | `--max-sessions` |
+| Agent destructive commands | Denied         | Yes          | `--yolo`         |
+| Agent token                | Auto-generated | Auto         | —                |

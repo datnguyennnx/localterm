@@ -29,16 +29,25 @@ program
   .option("-F, --foreground", "stay attached to this terminal (do not daemonize)", false)
   .option("--yolo", "allow destructive commands in agent mode (bypass denylist)", false)
   .option("--max-sessions <count>", "maximum concurrent sessions", parseInt, undefined)
-  .action(async (options: { port: number; host: string; open: boolean; foreground: boolean; yolo: boolean; maxSessions?: number }) => {
-    await runStart({
-      port: options.port,
-      host: options.host,
-      open: options.open,
-      foreground: options.foreground,
-      yolo: options.yolo,
-      maxSessions: options.maxSessions,
-    });
-  });
+  .action(
+    async (options: {
+      port: number;
+      host: string;
+      open: boolean;
+      foreground: boolean;
+      yolo: boolean;
+      maxSessions?: number;
+    }) => {
+      await runStart({
+        port: options.port,
+        host: options.host,
+        open: options.open,
+        foreground: options.foreground,
+        yolo: options.yolo,
+        maxSessions: options.maxSessions,
+      });
+    },
+  );
 
 program
   .command("stop")
@@ -62,15 +71,23 @@ program
   .option("--no-open", "do not open browser on start")
   .option("--yolo", "allow destructive commands in agent mode (bypass denylist)", false)
   .option("--max-sessions <count>", "maximum concurrent sessions", parseInt, undefined)
-  .action(async (options: { port: number; host: string; open: boolean; yolo: boolean; maxSessions?: number }) => {
-    await runRestart({
-      port: options.port,
-      host: options.host,
-      open: options.open,
-      yolo: options.yolo,
-      maxSessions: options.maxSessions,
-    });
-  });
+  .action(
+    async (options: {
+      port: number;
+      host: string;
+      open: boolean;
+      yolo: boolean;
+      maxSessions?: number;
+    }) => {
+      await runRestart({
+        port: options.port,
+        host: options.host,
+        open: options.open,
+        yolo: options.yolo,
+        maxSessions: options.maxSessions,
+      });
+    },
+  );
 
 program.parseAsync().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error);

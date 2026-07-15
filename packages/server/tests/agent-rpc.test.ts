@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any — test mocks need any */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vite-plus/test";
 
 // ─── Module-level mocks ───────────────────────────────────────────────────────
@@ -104,10 +105,7 @@ describe("isCommandDenied (through handleExec)", () => {
     sessionInstances.length = 0;
   });
 
-  const createExecRequest = (
-    command: string,
-    overrides: Partial<RpcRequest> = {},
-  ): RpcRequest => ({
+  const createExecRequest = (command: string, overrides: Partial<RpcRequest> = {}): RpcRequest => ({
     id: "exec-1",
     method: "exec",
     params: { sessionId: "mock-session-uuid", command },

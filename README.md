@@ -49,14 +49,14 @@ State lives in `~/.localterm/` (PID, port, agent token, server log at `~/.localt
 
 localterm supports AI coding agents with structured output, command boundary detection, and a programmatic RPC interface. Pass `?mode=agent&token=<token>` when connecting via WebSocket, or use the built-in WS-RPC methods:
 
-| Method | Description |
-|--------|-------------|
-| `spawn_session` | Create a new PTY session |
-| `list_sessions` | List active sessions |
-| `write_input` | Write data to a session |
-| `read_output` | Read plain-text output |
-| `wait_for_boundary` | Wait for command start/end |
-| `exec` | Write command + wait for result |
+| Method              | Description                     |
+| ------------------- | ------------------------------- |
+| `spawn_session`     | Create a new PTY session        |
+| `list_sessions`     | List active sessions            |
+| `write_input`       | Write data to a session         |
+| `read_output`       | Read plain-text output          |
+| `wait_for_boundary` | Wait for command start/end      |
+| `exec`              | Write command + wait for result |
 
 Agent token is auto-generated at `~/.localterm/agent-token`. Pass `--yolo` to bypass the command denylist.
 

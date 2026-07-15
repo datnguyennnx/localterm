@@ -213,9 +213,7 @@ describe("serverToClientMessageSchema", () => {
   });
 
   it("rejects agent-output missing the text field", () => {
-    expect(
-      serverToClientMessageSchema.safeParse({ type: "agent-output" }).success,
-    ).toBe(false);
+    expect(serverToClientMessageSchema.safeParse({ type: "agent-output" }).success).toBe(false);
   });
 
   it("accepts a command-boundary prompt-start frame", () => {

@@ -91,7 +91,10 @@ const onRawEvent = (raw: unknown, event: "pong", listener: () => void): (() => v
   };
 };
 
-const safeSendRaw = (ws: BroadcastSocket, payload: string | ArrayBuffer | Uint8Array<ArrayBuffer>): void => {
+const safeSendRaw = (
+  ws: BroadcastSocket,
+  payload: string | ArrayBuffer | Uint8Array<ArrayBuffer>,
+): void => {
   if (ws.readyState !== WS_READY_STATE_OPEN) return;
   if (getRawBufferedAmount(ws.raw) > WS_BACKPRESSURE_THRESHOLD_BYTES) {
     ws.close(WS_CLOSE_BACKPRESSURE, "backpressure");
@@ -189,10 +192,13 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             ws.close(WS_CLOSE_CAPACITY_REACHED, "session capacity reached");
             return;
           }
-          const integrationEnv = sessionMode === "agent"
-            ? { [SHELL_INTEGRATION_ENV_VAR]: "1" }
-            : undefined;
-          const newSession = new Session({ cwd: requestedCwd, mode: sessionMode, env: integrationEnv });
+          const integrationEnv =
+            sessionMode === "agent" ? { [SHELL_INTEGRATION_ENV_VAR]: "1" } : undefined;
+          const newSession = new Session({
+            cwd: requestedCwd,
+            mode: sessionMode,
+            env: integrationEnv,
+          });
           session = newSession;
           registry.register(newSession);
 
@@ -300,7 +306,11 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           const onCommandBoundary = (boundary: { phase: string; exitCode?: number }) => {
             safeSend(ws, {
               type: "command-boundary",
-              phase: boundary.phase as "prompt-start" | "command-start" | "output-start" | "command-end",
+              phase: boundary.phase as
+                | "prompt-start"
+                | "command-start"
+                | "output-start"
+                | "command-end",
               ...(boundary.exitCode !== undefined ? { exitCode: boundary.exitCode } : {}),
             });
           };

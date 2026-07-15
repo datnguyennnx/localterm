@@ -1,0 +1,27 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "vite": false,
+  "vitest": { "config": [] },
+  "ignoreBinaries": ["pmset", "ps", "xattr", "codesign", "lsof", "osascript"],
+  "ignoreDependencies": ["vitest", "@voidzero-dev/vite-plus-core", "jsdom"],
+  "ignoreIssues": {
+    "apps/terminal/src/lib/constants.ts": ["duplicates"],
+    "packages/server/src/constants.ts": ["duplicates"],
+    "packages/server/src/schemas.ts": ["duplicates"]
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["vite.config.ts"]
+    },
+    "apps/terminal": {
+      "entry": ["src/main.tsx", "vite.config.ts", "vitest.config.ts", "tests/setup.ts"],
+      "ignore": ["src/components/ui/**", "scripts/sw-template.js"]
+    },
+    "packages/server": {
+      "entry": ["src/server/index.ts", "src/protocol.ts", "src/constants.ts", "vitest.config.ts"]
+    },
+    "packages/cli": {
+      "entry": ["src/index.ts", "vitest.config.ts"]
+    }
+  }
+}

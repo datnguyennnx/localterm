@@ -74,7 +74,14 @@ export const useTerminalVisualOptions = (
     terminal.options.cursorBlink = activeCursorBlink;
     terminal.options.scrollback = activeScrollback;
     terminal.options.scrollOnUserInput = activeScrollOnUserInput;
-  }, [effectiveTheme, effectiveCursorStyle, activeCursorBlink, activeScrollback, activeScrollOnUserInput, terminalRef]);
+  }, [
+    effectiveTheme,
+    effectiveCursorStyle,
+    activeCursorBlink,
+    activeScrollback,
+    activeScrollOnUserInput,
+    terminalRef,
+  ]);
 };
 
 // ── Font loading effect ──────────────────────────────────────────────────────

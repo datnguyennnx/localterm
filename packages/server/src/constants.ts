@@ -110,5 +110,5 @@ export const AGENT_COMMAND_DENYLIST = [
   "> /dev/",
   "> /dev/sd",
   "> /dev/nvme",
-  ":(){ :|:& };:",  // fork bomb
+  ":(){ :|:& };:", // fork bomb
 ];

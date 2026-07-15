@@ -53,11 +53,10 @@ describe("loadOrCreateAgentToken", () => {
       mode: 0o755,
     });
     // Should write the token with restricted permissions
-    expect(writeFileSync).toHaveBeenCalledWith(
-      "/fake/home/.localterm/agent-token",
-      `${token}\n`,
-      { mode: 0o600, encoding: "utf-8" },
-    );
+    expect(writeFileSync).toHaveBeenCalledWith("/fake/home/.localterm/agent-token", `${token}\n`, {
+      mode: 0o600,
+      encoding: "utf-8",
+    });
   });
 
   it("reads token from existing file", async () => {
@@ -99,8 +98,7 @@ describe("validateAgentToken", () => {
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue("saved-token-value\n");
 
-    const { loadOrCreateAgentToken: load, validateAgentToken: validate } =
-      await freshTokenModule();
+    const { loadOrCreateAgentToken: load, validateAgentToken: validate } = await freshTokenModule();
     // Pre-load so cachedToken is set
     load();
 
@@ -111,8 +109,7 @@ describe("validateAgentToken", () => {
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue("some-token\n");
 
-    const { loadOrCreateAgentToken: load, validateAgentToken: validate } =
-      await freshTokenModule();
+    const { loadOrCreateAgentToken: load, validateAgentToken: validate } = await freshTokenModule();
     load();
 
     expect(validate("wrong-token")).toBe(false);

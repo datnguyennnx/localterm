@@ -11,8 +11,7 @@ vi.mock("node:os", () => ({
 }));
 
 // Re-import after mocking to capture the mocked homedir
-const { getLogFile, getPidFile, getPortFile, getStateDirectory } =
-  await import("../src/paths.js");
+const { getLogFile, getPidFile, getPortFile, getStateDirectory } = await import("../src/paths.js");
 
 describe("paths", () => {
   it("getStateDirectory returns ~/.localterm", () => {

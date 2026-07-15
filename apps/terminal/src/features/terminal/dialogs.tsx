@@ -68,8 +68,8 @@ export const TerminalDialogs = ({
               <AlertDialogDescription>
                 The browser lost its connection to the localterm daemon (close code{" "}
                 {exitInfo.closeCode}
-                {exitInfo.closeReason ? ` · ${exitInfo.closeReason}` : ""}). Reconnecting spawns
-                a fresh shell. The previous one can't be reattached.
+                {exitInfo.closeReason ? ` · ${exitInfo.closeReason}` : ""}). Reconnecting spawns a
+                fresh shell. The previous one can't be reattached.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

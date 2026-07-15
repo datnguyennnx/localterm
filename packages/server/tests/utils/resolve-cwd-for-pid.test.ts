@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any — test mocks need any */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vite-plus/test";
 
 // Mock child_process before importing the module under test.
