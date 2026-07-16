@@ -1,5 +1,13 @@
 # localterm
 
+## 0.1.1
+
+### Patch Changes
+
+- fix: add --foreground support to restart command
+- Updated dependencies
+  - @datnguyennnx/localterm-server@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
