@@ -5,11 +5,13 @@ import { buildDaemonStartArgs } from "../utils/build-daemon-args.js";
 import { reportCliError } from "../utils/report-cli-error.js";
 import { spawnDaemonAndWait } from "../utils/spawn-daemon-and-wait.js";
 import { runStop } from "./stop.js";
+import { type StartOptions, runStartInForeground } from "./start.js";
 
 export interface RestartOptions {
   port: number;
   host: string;
   open: boolean;
+  foreground?: boolean;
   yolo?: boolean;
   maxSessions?: number;
 }
@@ -21,6 +23,19 @@ export const runRestart = async (options: RestartOptions): Promise<void> => {
     process.exit(exitCodeForCliError(error));
   }
   await runStop();
+
+  if (options.foreground) {
+    const startOptions: StartOptions = {
+      port: options.port,
+      host: options.host,
+      open: options.open,
+      foreground: true,
+      yolo: options.yolo,
+      maxSessions: options.maxSessions,
+    };
+    await runStartInForeground(startOptions);
+    return;
+  }
 
   const result = await spawnDaemonAndWait(buildDaemonStartArgs(options));
 

@@ -69,6 +69,7 @@ program
   .option("-p, --port <port>", "port to bind", parsePortOption, initialPort)
   .option("-H, --host <host>", "host to bind", DEFAULT_HOST)
   .option("--no-open", "do not open browser on start")
+  .option("-F, --foreground", "stay attached to this terminal (do not daemonize)", false)
   .option("--yolo", "allow destructive commands in agent mode (bypass denylist)", false)
   .option("--max-sessions <count>", "maximum concurrent sessions", parseInt, undefined)
   .action(
@@ -76,6 +77,7 @@ program
       port: number;
       host: string;
       open: boolean;
+      foreground: boolean;
       yolo: boolean;
       maxSessions?: number;
     }) => {
@@ -83,6 +85,7 @@ program
         port: options.port,
         host: options.host,
         open: options.open,
+        foreground: options.foreground,
         yolo: options.yolo,
         maxSessions: options.maxSessions,
       });

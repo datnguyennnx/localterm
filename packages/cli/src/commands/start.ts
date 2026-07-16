@@ -84,7 +84,7 @@ const openInBrowser = async (url: string): Promise<void> => {
   }
 };
 
-const runStartInForeground = async (options: StartOptions): Promise<void> => {
+export const runStartInForeground = async (options: StartOptions): Promise<void> => {
   const preflightError = await runStartPreflight(options.host);
   if (preflightError !== null) {
     reportCliError(preflightError);
