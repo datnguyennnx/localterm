@@ -32,21 +32,20 @@ This:
 - Bumps version in `package.json` for affected packages
 - Updates `CHANGELOG.md` for each affected package with the changeset summary
 
-### 3. Commit the version
+### 3. Review and update CHANGELOG.md files
+
+Before committing, review the auto-generated changelogs in `packages/cli/CHANGELOG.md` and `packages/server/CHANGELOG.md`:
+
+- Check that the changelog entry accurately describes what changed
+- Group changes under the appropriate headings (see [CHANGELOG.md format](#changelogmd-format) below)
+- Remove or consolidate any duplicate or redundant entries
+
+### 4. Commit the version
 
 ```bash
 git add -A
 git commit -m "chore: bump version to X.Y.Z"
 ```
-
-### 4. Publish to npm
-
-```bash
-pnpm build
-pnpm changeset publish
-```
-
-Requires `npm login` and npm token configured.
 
 ## Version strategy
 
@@ -97,3 +96,14 @@ Changelogs are auto-generated from changeset summaries. Group changes under clea
 - [ ] Format applied: `pnpm format`
 - [ ] Changeset created and consumed
 - [ ] Build succeeds: `pnpm build`
+
+## Publish to npm (manual)
+
+After committing the version bump:
+
+```bash
+pnpm build
+pnpm changeset publish
+```
+
+Requires `npm login` and npm token configured. If 2FA is enabled, you'll be prompted for a one-time password or can use an automation token.
