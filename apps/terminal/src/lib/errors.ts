@@ -49,9 +49,6 @@ export type WebError =
   | StorageDeniedError
   | ClipboardDeniedError;
 
-export type WebErrorCode = WebError["code"];
-export type WebErrorKind = WebError["kind"];
-
 export const webError = {
   connectionLost: (consecutiveFailures: number): ConnectionLostError => ({
     kind: "connection-lost",

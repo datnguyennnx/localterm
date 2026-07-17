@@ -1,6 +1,4 @@
 import { MAX_PENDING_PARSE_BYTES } from "../constants.js";
-import { parseOsc133FromChunk } from "./parse-osc133-from-chunk.js";
-import { parseOsc7FromChunk } from "./parse-osc7-from-chunk.js";
 
 /**
  * BEL (0x07) terminator for OSC sequences — used by common terminal emulators
@@ -52,8 +50,3 @@ const isIncompleteOsc = (tail: string): boolean => {
   if (tail[1] !== "]") return false;
   return !tail.includes(OSC_BEL_TERMINATOR, 2) && !tail.includes(OSC_ST_TERMINATOR, 2);
 };
-
-/** Pre-instantiated parser for OSC 133 FinalTerm command-boundary sequences. */
-export const commandBoundaryParser = new OscChunkParser(parseOsc133FromChunk);
-/** Pre-instantiated parser for OSC 7 working-directory sequences. */
-export const osc7Parser = new OscChunkParser(parseOsc7FromChunk);

@@ -100,9 +100,6 @@ export type CliError =
   | SignalFailedError
   | HealthCheckFailedError;
 
-export type CliErrorCode = CliError["code"];
-export type CliErrorKind = CliError["kind"];
-
 export const cliError = {
   invalidPort: (raw: string, reason: string): InvalidPortError => ({
     kind: "invalid-port",

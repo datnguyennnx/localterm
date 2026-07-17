@@ -14,15 +14,13 @@ export const TERMINAL_LINE_HEIGHT_STEP = 0.1;
 export const DEFAULT_TERMINAL_CURSOR_BLINK = true;
 export const DEFAULT_TERMINAL_SCROLL_ON_USER_INPUT = true;
 export const FALLBACK_TERMINAL_BACKGROUND_HEX = "#101010";
-export const DEFAULT_DOCUMENT_TITLE = "localterm";
-export const DEAD_SESSION_TITLE_PREFIX = "† ";
+
 export const DISCONNECT_MODAL_THRESHOLD_FAILURES = 2;
 export const RESTART_COMMAND = "npx localterm@latest start";
 export const COPY_FEEDBACK_MS = 1500;
 export const RETRY_BUTTON_FEEDBACK_MS = 800;
 export const RECONNECT_POLL_INTERVAL_MS = 5000;
-export const FAVICON_ACTIVE_DEBOUNCE_MS = 250;
-export const FAVICON_IDLE_DEBOUNCE_MS = 750;
+
 export const FAVICON_DEAD_OPACITY = 0.35;
 export const FAVICON_RECENT_HUES_LIMIT = 16;
 export const FAVICON_HUE_GRID_STEP_DEG = 12;
@@ -56,10 +54,6 @@ export const KITTY_KEYBOARD_DISAMBIGUATE_FLAG = 1;
 export const KITTY_KEYBOARD_SET_MODE_REPLACE = 1;
 export const KITTY_KEYBOARD_SET_MODE_OR = 2;
 export const KITTY_KEYBOARD_SET_MODE_AND_NOT = 3;
-
-export const SEARCH_MATCH_BACKGROUND_HEX = "#ffc79944";
-export const SEARCH_ACTIVE_MATCH_BACKGROUND_HEX = "#ffc799";
-export const SEARCH_ACTIVE_MATCH_BORDER_HEX = "#ff8080";
 
 export const TERMINAL_THEME_STORAGE_KEY = "localterm:terminal-theme-id";
 export const TERMINAL_FONT_STORAGE_KEY = "localterm:terminal-font-id";

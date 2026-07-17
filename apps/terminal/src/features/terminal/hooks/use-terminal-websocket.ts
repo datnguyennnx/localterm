@@ -21,15 +21,15 @@ import type { FlowController } from "@/features/terminal/flow-control";
 
 export interface UseTerminalWebSocketParams {
   terminalRef: React.RefObject<Terminal | null>;
-  flowControllerRef: React.MutableRefObject<FlowController | null>;
-  exitedRef: React.MutableRefObject<boolean>;
-  lastTitleRef: React.MutableRefObject<string>;
-  resetFaviconRef: React.MutableRefObject<(() => void) | null>;
-  noteOutputActivityRef: React.MutableRefObject<(() => void) | null>;
+  flowControllerRef: React.RefObject<FlowController | null>;
+  exitedRef: React.RefObject<boolean>;
+  lastTitleRef: React.RefObject<string>;
+  resetFaviconRef: React.RefObject<(() => void) | null>;
+  noteOutputActivityRef: React.RefObject<(() => void) | null>;
   liveCwdRef: React.RefObject<string | null>;
-  isReconnectingRef: React.MutableRefObject<boolean>;
-  retryFeedbackTimerRef: React.MutableRefObject<number | null>;
-  copyFeedbackTimerRef: React.MutableRefObject<number | null>;
+  isReconnectingRef: React.RefObject<boolean>;
+  retryFeedbackTimerRef: React.RefObject<number | null>;
+  copyFeedbackTimerRef: React.RefObject<number | null>;
   setExitInfo: (info: ExitInfo | null) => void;
   setSessionInfo: (info: TerminalSessionInfo | null) => void;
   setConsecutiveFailures: React.Dispatch<React.SetStateAction<number>>;

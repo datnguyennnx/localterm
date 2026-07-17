@@ -37,7 +37,7 @@ import { clampTerminalLineHeight } from "@/features/terminal/fonts/clamp-termina
 
 // Stores a user-entered font family name (or null if none). The
 // deserialize trims whitespace and returns null for empty strings.
-export const localFontFamilySlot = createStorageSlot<string | null>(
+const localFontFamilySlot = createStorageSlot<string | null>(
   LOCAL_FONT_FAMILY_STORAGE_KEY,
   null,
   (raw) => raw.trim() || null,
@@ -46,7 +46,7 @@ export const localFontFamilySlot = createStorageSlot<string | null>(
 export const loadStoredLocalFontFamily = (): string | null => localFontFamilySlot.load();
 export const storeLocalFontFamily = (family: string): void => localFontFamilySlot.store(family);
 
-export const terminalThemeIdSlot = createStorageSlot(
+const terminalThemeIdSlot = createStorageSlot(
   TERMINAL_THEME_STORAGE_KEY,
   DEFAULT_TERMINAL_THEME_ID,
   (raw) => findTerminalThemeById(raw).id,
@@ -55,7 +55,7 @@ export const terminalThemeIdSlot = createStorageSlot(
 export const loadStoredTerminalThemeId = (): string => terminalThemeIdSlot.load();
 export const storeTerminalThemeId = (themeId: string): void => terminalThemeIdSlot.store(themeId);
 
-export const terminalFontIdSlot = createStorageSlot(
+const terminalFontIdSlot = createStorageSlot(
   TERMINAL_FONT_STORAGE_KEY,
   DEFAULT_TERMINAL_FONT_ID,
   (raw) => {
@@ -70,7 +70,7 @@ export const terminalFontIdSlot = createStorageSlot(
 export const loadStoredTerminalFontId = (): string => terminalFontIdSlot.load();
 export const storeTerminalFontId = (fontId: string): void => terminalFontIdSlot.store(fontId);
 
-export const terminalFontSizeSlot = createStorageSlot(
+const terminalFontSizeSlot = createStorageSlot(
   TERMINAL_FONT_SIZE_STORAGE_KEY,
   DEFAULT_TERMINAL_FONT_SIZE_PX,
   (raw) => clampTerminalFontSize(Number(raw)),
@@ -79,7 +79,7 @@ export const terminalFontSizeSlot = createStorageSlot(
 export const loadStoredTerminalFontSize = (): number => terminalFontSizeSlot.load();
 export const storeTerminalFontSize = (size: number): void => terminalFontSizeSlot.store(size);
 
-export const terminalLineHeightSlot = createStorageSlot(
+const terminalLineHeightSlot = createStorageSlot(
   TERMINAL_LINE_HEIGHT_STORAGE_KEY,
   DEFAULT_TERMINAL_LINE_HEIGHT,
   (raw) => clampTerminalLineHeight(Number(raw)),
@@ -89,7 +89,7 @@ export const loadStoredTerminalLineHeight = (): number => terminalLineHeightSlot
 export const storeTerminalLineHeight = (lineHeight: number): void =>
   terminalLineHeightSlot.store(lineHeight);
 
-export const terminalCursorStyleSlot = createStorageSlot<TerminalCursorStyle>(
+const terminalCursorStyleSlot = createStorageSlot<TerminalCursorStyle>(
   TERMINAL_CURSOR_STYLE_STORAGE_KEY,
   DEFAULT_TERMINAL_CURSOR_STYLE,
   (raw) => (isTerminalCursorStyle(raw) ? raw : DEFAULT_TERMINAL_CURSOR_STYLE),
@@ -100,7 +100,7 @@ export const loadStoredTerminalCursorStyle = (): TerminalCursorStyle =>
 export const storeTerminalCursorStyle = (cursorStyle: TerminalCursorStyle): void =>
   terminalCursorStyleSlot.store(cursorStyle);
 
-export const terminalCursorBlinkSlot = createStorageSlot(
+const terminalCursorBlinkSlot = createStorageSlot(
   TERMINAL_CURSOR_BLINK_STORAGE_KEY,
   DEFAULT_TERMINAL_CURSOR_BLINK,
   (raw) => {
@@ -114,7 +114,7 @@ export const loadStoredTerminalCursorBlink = (): boolean => terminalCursorBlinkS
 export const storeTerminalCursorBlink = (cursorBlink: boolean): void =>
   terminalCursorBlinkSlot.store(cursorBlink);
 
-export const terminalScrollbackSlot = createStorageSlot(
+const terminalScrollbackSlot = createStorageSlot(
   TERMINAL_SCROLLBACK_STORAGE_KEY,
   DEFAULT_TERMINAL_SCROLLBACK_LINES,
   (raw) => {
@@ -127,7 +127,7 @@ export const loadStoredTerminalScrollback = (): number => terminalScrollbackSlot
 export const storeTerminalScrollback = (scrollback: number): void =>
   terminalScrollbackSlot.store(scrollback);
 
-export const terminalScrollOnUserInputSlot = createStorageSlot(
+const terminalScrollOnUserInputSlot = createStorageSlot(
   TERMINAL_SCROLL_ON_USER_INPUT_STORAGE_KEY,
   DEFAULT_TERMINAL_SCROLL_ON_USER_INPUT,
   (raw) => {

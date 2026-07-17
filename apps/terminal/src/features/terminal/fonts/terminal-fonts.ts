@@ -15,7 +15,7 @@ const MONO_FALLBACK = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 const buildFamily = (primary: string): string =>
   `"${escapeCssFontFamily(primary)}", ${MONO_FALLBACK}`;
 
-export const buildLocalTerminalFont = (family: string): TerminalFont => ({
+const buildLocalTerminalFont = (family: string): TerminalFont => ({
   id: LOCAL_FONT_ID,
   name: family,
   family: buildFamily(family),

@@ -7,28 +7,7 @@ export const FLOW_LOW_WATER_CALLBACKS = 1;
 export const estimateBytes = (data: string | Uint8Array): number =>
   typeof data === "string" ? data.length : data.byteLength;
 
-import { DEAD_SESSION_TITLE_PREFIX, DEFAULT_DOCUMENT_TITLE } from "@/lib/constants";
-
-export const titleForLiveSession = (raw: string): string => raw || DEFAULT_DOCUMENT_TITLE;
-
-export const titleForDeadSession = (raw: string): string =>
-  `${DEAD_SESSION_TITLE_PREFIX}${raw || DEFAULT_DOCUMENT_TITLE}`;
-
-export const CWD_QUERY_PARAM = "cwd";
-
-import {
-  SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
-  SEARCH_ACTIVE_MATCH_BORDER_HEX,
-  SEARCH_MATCH_BACKGROUND_HEX,
-} from "@/lib/constants";
-
-export const SEARCH_DECORATION_OPTIONS = {
-  matchBackground: SEARCH_MATCH_BACKGROUND_HEX,
-  activeMatchBackground: SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
-  activeMatchBorder: SEARCH_ACTIVE_MATCH_BORDER_HEX,
-  matchOverviewRuler: SEARCH_ACTIVE_MATCH_BACKGROUND_HEX,
-  activeMatchColorOverviewRuler: SEARCH_ACTIVE_MATCH_BORDER_HEX,
-};
+const CWD_QUERY_PARAM = "cwd";
 
 export const buildWebSocketUrl = (cwdOverride?: string | null): string => {
   const url = new URL("/ws", window.location.href);

@@ -53,7 +53,7 @@ const ExecParamsSchema = z
 // backpressure — the agent opens one WS, authenticates once, and gets both
 // the terminal output stream AND the control surface through the same pipe.
 
-export interface ManagedSession {
+interface ManagedSession {
   id: string;
   session: Session;
   outputBuffer: string[];

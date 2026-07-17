@@ -1,5 +1,19 @@
 # localterm
 
+## 0.1.5
+
+### Patch Changes
+
+- refactor: remove unused dead code across packages
+
+  - Removed unused exports, files, and types identified by knip
+  - Removed unused zod dependency from CLI
+  - Simplified package.json scripts (merged redundant commands, lint auto-fixes)
+  - Cleaned up knip configuration hints
+
+- Updated dependencies
+  - @datnguyennnx/localterm-server@0.1.5
+
 ## 0.1.4
 
 ### Patch Changes
