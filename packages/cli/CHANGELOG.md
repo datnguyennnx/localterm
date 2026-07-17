@@ -1,5 +1,12 @@
 # localterm
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies
+  - @datnguyennnx/localterm-server@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes

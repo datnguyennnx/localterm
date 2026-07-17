@@ -2,7 +2,7 @@
 
 This monorepo uses **Changesets** (`@changesets/cli`) via pnpm run for version management. Each workspace under `apps/*` and `packages/*` is versioned independently.
 
-## Workflow 
+## Workflow
 
 ```bash
 

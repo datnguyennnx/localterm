@@ -15,8 +15,8 @@ import {
   TERMINAL_SCROLL_ON_USER_INPUT_STORAGE_KEY,
   TERMINAL_SCROLLBACK_STORAGE_KEY,
 } from "../../src/lib/constants";
-import { DEFAULT_TERMINAL_CURSOR_STYLE } from "../../src/lib/terminal-cursor";
-import { DEFAULT_TERMINAL_SCROLLBACK_LINES } from "../../src/lib/terminal-scrollback";
+import { DEFAULT_TERMINAL_CURSOR_STYLE } from "../../src/features/terminal/cursor/terminal-cursor";
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES } from "../../src/features/terminal/scrollback/terminal-scrollback";
 
 interface FakeWebSocketHandle {
   url: string;

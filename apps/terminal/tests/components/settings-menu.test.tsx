@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { SettingsMenu } from "../../src/components/settings-menu";
-import type { TerminalSessionInfo } from "../../src/lib/terminal-session-info";
+import type { TerminalSessionInfo } from "../../src/features/terminal/session/terminal-session-info";
 import { TooltipProvider } from "../../src/components/ui/tooltip";
 import {
   DEFAULT_TERMINAL_CURSOR_BLINK,
@@ -15,8 +15,8 @@ import {
 import {
   DEFAULT_TERMINAL_CURSOR_STYLE,
   type TerminalCursorStyle,
-} from "../../src/lib/terminal-cursor";
-import { DEFAULT_TERMINAL_SCROLLBACK_LINES } from "../../src/lib/terminal-scrollback";
+} from "../../src/features/terminal/cursor/terminal-cursor";
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES } from "../../src/features/terminal/scrollback/terminal-scrollback";
 
 interface SettingsMenuHarnessProps {
   initialFontSize?: number;

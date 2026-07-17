@@ -1,5 +1,18 @@
 # localterm-server
 
+## 0.1.4
+
+### Patch Changes
+
+- - refactor: restructure apps/terminal/src/ by domain (lib/utils → features/terminal/<subdomain>/, platform/, storage/, pwa/)
+  - refactor: extract 14 terminal hooks into individual files under hooks/ with barrel export
+  - refactor: split settings-menu.tsx into 5 subcomponents + hook (423→153 LoC)
+  - refactor: split index.tsx into 4 extracted hooks (841→477 LoC)
+  - refactor: extract usePointerScrub from number-stepper.tsx (170→89 LoC)
+  - refactor: extract useLocalFonts from local-font-picker.tsx (244→182 LoC)
+  - fix: search overlay no longer always visible, respects isSearchOpen state
+  - style: remove decorative section divider comments across all files
+
 ## 0.1.3
 
 ### Patch Changes

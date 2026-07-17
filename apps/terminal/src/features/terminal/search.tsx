@@ -17,6 +17,7 @@ interface SearchOverlayProps {
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onFindNext: () => void;
   onFindPrevious: () => void;
+  isSearchOpen: boolean;
 }
 
 export const SearchOverlay = ({

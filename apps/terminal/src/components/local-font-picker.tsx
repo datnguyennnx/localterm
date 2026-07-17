@@ -1,24 +1,13 @@
 import { Search } from "lucide-react";
-import {
-  type CSSProperties,
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CSSProperties, useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TRANSLUCENT_PANEL_CLASSES } from "@/lib/animation-classes";
 import { LOCAL_FONT_ROW_INTRINSIC_HEIGHT_PX } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { escapeCssFontFamily } from "@/utils/escape-css-font-family";
-import {
-  type LocalFontPermissionState,
-  loadLocalFontPermissionState,
-} from "@/utils/load-local-font-permission-state";
-import { isLocalFontAccessSupported, queryLocalFonts } from "@/utils/query-local-fonts";
+import { escapeCssFontFamily } from "@/features/terminal/fonts/escape-css-font-family";
+import { useLocalFonts } from "@/features/terminal/fonts/use-local-fonts";
 
 interface LocalFontPickerProps {
   open: boolean;
@@ -26,13 +15,6 @@ interface LocalFontPickerProps {
   currentFamily: string | null;
   onApply: (family: string) => void;
 }
-
-type PickerState =
-  | { kind: "loading" }
-  | { kind: "unsupported" }
-  | { kind: "denied" }
-  | { kind: "prompt" }
-  | { kind: "ready"; families: readonly string[] };
 
 const ROW_BASE_CLASSES =
   "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-foreground/90 outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10";
@@ -43,12 +25,6 @@ const ROW_STYLE: CSSProperties = {
 };
 
 const HELP_TEXT_CLASSES = "text-xs leading-snug text-muted-foreground/80";
-
-const filterFamilies = (families: readonly string[], query: string): readonly string[] => {
-  const trimmed = query.trim().toLowerCase();
-  if (!trimmed) return families;
-  return families.filter((family) => family.toLowerCase().includes(trimmed));
-};
 
 interface ManualFamilyInputProps {
   initialValue: string;
@@ -97,59 +73,21 @@ export const LocalFontPicker = ({
   currentFamily,
   onApply,
 }: LocalFontPickerProps) => {
-  const [state, setState] = useState<PickerState>({ kind: "loading" });
-  const [searchQuery, setSearchQuery] = useState("");
-  const deferredQuery = useDeferredValue(searchQuery);
-
-  useEffect(() => {
-    if (!open) return;
-    setSearchQuery("");
-    let cancelled = false;
-    setState({ kind: "loading" });
-    void (async () => {
-      if (!isLocalFontAccessSupported()) {
-        if (!cancelled) setState({ kind: "unsupported" });
-        return;
-      }
-      const permission: LocalFontPermissionState = await loadLocalFontPermissionState();
-      if (cancelled) return;
-      if (permission === "granted") {
-        const families = await queryLocalFonts();
-        if (!cancelled) setState({ kind: "ready", families });
-      } else if (permission === "denied") {
-        setState({ kind: "denied" });
-      } else if (permission === "unsupported") {
-        // Permissions API doesn't know about local-fonts even though
-        // queryLocalFonts exists — ask directly, the API will prompt.
-        setState({ kind: "prompt" });
-      } else {
-        setState({ kind: "prompt" });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  const requestPermissionAndLoad = async () => {
-    setState({ kind: "loading" });
-    const families = await queryLocalFonts();
-    if (families.length === 0) {
-      setState({ kind: "denied" });
-      return;
-    }
-    setState({ kind: "ready", families });
-  };
-
-  const handleApply = (family: string) => {
-    onApply(family);
-    onOpenChange(false);
-  };
-
-  const filteredFamilies = useMemo(() => {
-    if (state.kind !== "ready") return [];
-    return filterFamilies(state.families, deferredQuery);
-  }, [state.kind, state.kind === "ready" ? state.families : undefined, deferredQuery]);
+  const {
+    state,
+    searchQuery,
+    setSearchQuery,
+    deferredQuery,
+    filteredFamilies,
+    handleApply,
+    requestPermission,
+  } = useLocalFonts({
+    open,
+    onFontSelect: (family: string) => {
+      onApply(family);
+      onOpenChange(false);
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,7 +126,7 @@ export const LocalFontPicker = ({
               type="button"
               size="sm"
               variant="secondary"
-              onClick={requestPermissionAndLoad}
+              onClick={requestPermission}
               className="h-7 text-xs"
             >
               Allow access

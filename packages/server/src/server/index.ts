@@ -64,36 +64,7 @@ const DEV_MODE_REDIRECT_HTML = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="refresh" content="1;url=http://localhost:5174" />
-  <title>LocalTerm Dev Mode</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #1a1a2e;
-      color: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    .container { text-align: center; padding: 2rem; }
-    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #00d4aa; }
-    p { margin-bottom: 0.75rem; line-height: 1.5; }
-    a { color: #00d4aa; }
-    .redirect-note { font-size: 0.875rem; opacity: 0.7; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <h1>LocalTerm Dev Mode</h1>
-    <p>The terminal server is running in development mode.</p>
-    <p>Redirecting to the Vite dev server…</p>
-    <p class="redirect-note">
-      If you are not redirected automatically,
-      <a href="http://localhost:5174">click here</a>.
-    </p>
-  </div>
-</body>
 </html>`;
 
 const getRawBufferedAmount = (raw: unknown): number => {

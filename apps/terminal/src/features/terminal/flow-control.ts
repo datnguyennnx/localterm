@@ -1,4 +1,4 @@
-import type { TerminalScrollAnchor } from "@/utils/capture-terminal-scroll-anchor";
+import type { TerminalScrollAnchor } from "@/features/terminal/scroll/capture-terminal-scroll-anchor";
 import {
   estimateBytes,
   FLOW_CALLBACK_BYTE_LIMIT,

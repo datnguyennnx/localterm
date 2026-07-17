@@ -3,8 +3,8 @@ import { SettingsMenu } from "@/components/settings-menu";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOOLTIP_SIDE_OFFSET_PX } from "@/lib/constants";
-import type { TerminalCursorStyle } from "@/lib/terminal-cursor";
-import type { TerminalSessionInfo } from "@/lib/terminal-session-info";
+import type { TerminalCursorStyle } from "@/features/terminal/cursor/terminal-cursor";
+import type { TerminalSessionInfo } from "@/features/terminal/session/terminal-session-info";
 
 interface ToolbarProps {
   activeThemeId: string;
