@@ -9,13 +9,17 @@ const stripPort = (hostHeader: string | undefined): string | null => {
     const end = trimmed.indexOf("]");
     return end === -1 ? trimmed : trimmed.slice(0, end + 1);
   }
-  const colon = trimmed.lastIndexOf(":");
-  if (colon !== -1) {
-    const afterColon = trimmed.slice(colon + 1);
+  // More than one colon → bare IPv6 (e.g. ::1, fe80::1, ::ffff:127.0.0.1)
+  if ((trimmed.match(/:/g) || []).length > 1) {
+    return `[${trimmed}]`;
+  }
+  // Exactly one colon → host:port — strip the port
+  const colonIndex = trimmed.lastIndexOf(":");
+  if (colonIndex !== -1) {
+    const afterColon = trimmed.slice(colonIndex + 1);
     if (/^\d{1,5}$/.test(afterColon)) {
-      return trimmed.slice(0, colon); // it's a port, strip it
+      return trimmed.slice(0, colonIndex); // it's a port, strip it
     }
-    return `[${trimmed}]`; // bare IPv6 without brackets
   }
   return trimmed;
 };

@@ -1,5 +1,18 @@
 # localterm
 
+## 0.1.2
+
+### Patch Changes
+
+- - fix: WebSocket close code 1008 caused by `stripPort` IPv6 detection bug
+  - fix: stale server dist files silently ignored source changes
+  - feat: dev mode redirect page when static root is null
+  - feat: `LOCALTERM_DEV` env var to prevent stale static serving in dev mode
+  - chore: `RestartOptions.foreground` type consistency
+  - chore: `dev:all` opens Vite dev URL (5174) instead of server URL
+- Updated dependencies
+  - @datnguyennnx/localterm-server@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
