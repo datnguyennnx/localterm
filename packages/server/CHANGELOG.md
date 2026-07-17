@@ -1,5 +1,11 @@
 # localterm-server
 
+## 0.1.3
+
+### Patch Changes
+
+- chore: bump version to 0.1.3 (no code changes to published packages)
+
 ## 0.1.2
 
 ### Patch Changes
