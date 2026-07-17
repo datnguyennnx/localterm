@@ -74,6 +74,5 @@ export interface TerminalProps {
 
 export interface ResizeScrollRestoreState {
   anchor: TerminalScrollAnchor;
-  expiresAtMs: number;
   timer: number;
 }

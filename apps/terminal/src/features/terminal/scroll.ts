@@ -48,10 +48,6 @@ export const createScrollManager = (deps: ScrollManagerDeps): ScrollManager => {
 
   const restoreResizeScroll = (): void => {
     if (!restoreState) return;
-    if (Date.now() > restoreState.expiresAtMs) {
-      clearResizeScrollRestore();
-      return;
-    }
     restoreAnchor(restoreState.anchor);
   };
 
@@ -63,7 +59,6 @@ export const createScrollManager = (deps: ScrollManagerDeps): ScrollManager => {
     }, RESIZE_SCROLL_RESTORE_WINDOW_MS);
     restoreState = {
       anchor,
-      expiresAtMs: Date.now() + RESIZE_SCROLL_RESTORE_WINDOW_MS,
       timer,
     };
     resizeScrollAnimationFrame = window.requestAnimationFrame(() => {

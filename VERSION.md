@@ -2,22 +2,30 @@
 
 This monorepo uses **Changesets** (`@changesets/cli`) via pnpm run for version management. Each workspace under `apps/*` and `packages/*` is versioned independently.
 
-## Workflow (strict order)
+## Workflow 
 
 ```bash
-# 1. Create a changeset entry describing the change
+
+# 1. Before commit and public checklist
+pnpm run test
+pnpm run typecheck
+pnpm run lint
+pnpm run format
+pnpm run build
+
+# 2. Create a changeset entry describing the change
 pnpm run changeset
 
-# 2. Consume pending changesets — bump versions + update CHANGELOGs
+# 3. Consume pending changesets — bump versions + update CHANGELOGs
 pnpm run changeset version
 
-# 3. Stage all files (changesets are auto-deleted; package.json and CHANGELOG.md updated)  -> always using git diff and git show to overview again what changes and group files change related to packages/ or apps/
+# 4. Stage all files (changesets are auto-deleted; package.json and CHANGELOG.md updated)  -> always using git diff and git show to overview again what changes and group files change related to packages/ or apps/
 git add -A
 
-# 4. Commit with a short 1-line Conventional Commits message -> always using git diff and git show to overview again what changes
+# 5. Commit with a short 1-line Conventional Commits message -> always using git diff and git show to overview again what changes
 git commit -m "fix(packages/server): security websocket"
 
-# 5. Push
+# 6. Push
 git push
 ```
 
@@ -69,16 +77,7 @@ type(scope): short description
 | `minor` | New features, public API additions       | 0.0.1 → 0.1.0 |
 | `major` | Breaking changes                         | 0.1.0 → 1.0.0 |
 
-## Before publishing checklist
-
-- [ ] All tests pass: `pnpm test`
-- [ ] TypeScript compiles: `pnpm typecheck`
-- [ ] Lint passes: `pnpm lint`
-- [ ] Format applied: `pnpm format`
-- [ ] Changeset created and consumed
-- [ ] Build succeeds: `pnpm build`
-
-## Publish to npm
+## 5. Publish to npm
 
 After committing the version bump:
 

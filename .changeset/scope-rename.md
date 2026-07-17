@@ -3,4 +3,5 @@
 "@datnguyennnx/localterm-website": patch
 ---
 
-chore: rename scope from @localterm to @datnguyennnx for terminal and website packages
+- refactor: rename @localterm scope to @datnguyennnx for terminal and website packages
+- fix: remove flaky Date.now() expiration from resize scroll restore, fix assertion arity in test
