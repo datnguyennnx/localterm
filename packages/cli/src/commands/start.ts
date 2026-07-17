@@ -23,6 +23,7 @@ import { spawnDaemonAndWait } from "../utils/spawn-daemon-and-wait.js";
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 const resolveStaticRoot = (): string | null => {
+  if (process.env.LOCALTERM_DEV === "1") return null;
   const candidates = [
     path.resolve(moduleDir, "../../../../apps/terminal/dist"),
     path.resolve(moduleDir, "../../terminal"),

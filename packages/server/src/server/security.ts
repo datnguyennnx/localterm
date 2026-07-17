@@ -9,10 +9,15 @@ const stripPort = (hostHeader: string | undefined): string | null => {
     const end = trimmed.indexOf("]");
     return end === -1 ? trimmed : trimmed.slice(0, end + 1);
   }
-  if (trimmed.includes(":") && !trimmed.includes(".")) return `[${trimmed}]`;
   const colon = trimmed.lastIndexOf(":");
-  if (colon === -1) return trimmed;
-  return trimmed.slice(0, colon);
+  if (colon !== -1) {
+    const afterColon = trimmed.slice(colon + 1);
+    if (/^\d{1,5}$/.test(afterColon)) {
+      return trimmed.slice(0, colon); // it's a port, strip it
+    }
+    return `[${trimmed}]`; // bare IPv6 without brackets
+  }
+  return trimmed;
 };
 
 const originHostname = (originHeader: string | undefined): string | null => {

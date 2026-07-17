@@ -11,7 +11,7 @@ export interface RestartOptions {
   port: number;
   host: string;
   open: boolean;
-  foreground?: boolean;
+  foreground: boolean;
   yolo?: boolean;
   maxSessions?: number;
 }
