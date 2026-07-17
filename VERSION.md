@@ -11,7 +11,7 @@ pnpm run changeset
 # 2. Consume pending changesets — bump versions + update CHANGELOGs
 pnpm run changeset version
 
-# 3. Stage all files (changesets are auto-deleted; package.json and CHANGELOG.md updated)  -> always using git diff and git show to overview again what changes and group files change related to packages/ or apps/ 
+# 3. Stage all files (changesets are auto-deleted; package.json and CHANGELOG.md updated)  -> always using git diff and git show to overview again what changes and group files change related to packages/ or apps/
 git add -A
 
 # 4. Commit with a short 1-line Conventional Commits message -> always using git diff and git show to overview again what changes
@@ -22,7 +22,6 @@ git push
 ```
 
 > **Note:** `commit: false` is set in `.changeset/config.json`. Changesets will NOT commit for you. You must commit manually.
-
 
 ## 1. Writing a Changeset — Full Descriptions
 
@@ -41,7 +40,7 @@ Run `pnpm run changeset version`. This will:
 - Delete all consumed `.changeset/*.md` files.
 - Update the `version` field in **each affected package's `package.json`** to match the bump.
 - Generate/update `CHANGELOG.md` for each affected package.
-- Update any internal workspace dependency ranges (e.g., if `"@datnguyennnx/localterm-server` bumps, `apps/terminal`'s dependency on `"@datnguyennnx/localterm-server` is updated automatically per `updateInternalDependencies: "patch"`). Double check with turbo.json with malicious think.  
+- Update any internal workspace dependency ranges (e.g., if `"@datnguyennnx/localterm-server` bumps, `apps/terminal`'s dependency on `"@datnguyennnx/localterm-server` is updated automatically per `updateInternalDependencies: "patch"`). Double check with turbo.json with malicious think.
 
 **Always review** the resulting `package.json` version fields before committing.
 
@@ -69,7 +68,6 @@ type(scope): short description
 | `patch` | Bug fixes, refactoring, internal cleanup | 0.0.0 → 0.0.1 |
 | `minor` | New features, public API additions       | 0.0.1 → 0.1.0 |
 | `major` | Breaking changes                         | 0.1.0 → 1.0.0 |
-
 
 ## Before publishing checklist
 

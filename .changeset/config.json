@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@localterm/terminal", "@localterm/website"]
+  "ignore": ["@datnguyennnx/localterm-terminal", "@datnguyennnx/localterm-website"]
 }

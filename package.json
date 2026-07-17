@@ -35,7 +35,7 @@
     "@types/node": "^25.5.0",
     "@voidzero-dev/vite-plus-core": "^0.1.12",
     "knip": "^6.26.0",
-    "turbo": "^2.9.3",
+    "turbo": "^2.10.5",
     "typescript": "^5.9.3",
     "vite-plus": "^0.1.12"
   },

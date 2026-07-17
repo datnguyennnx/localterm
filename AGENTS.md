@@ -128,7 +128,7 @@ See root `package.json` scripts for the full list. Quick reference:
 ### Version strategy
 
 - `@datnguyennnx/localterm` (CLI) and `@datnguyennnx/localterm-server` (server) are **fixed** — versioned together as a pair (same version number).
-- `@localterm/terminal` (browser app) and `@localterm/website` are **ignored** — not published to npm.
+- `@datnguyennnx/localterm-terminal` (browser app) and `@datnguyennnx/localterm-website` are **ignored** — not published to npm.
 - Patch bump for bug fixes and refactoring. Minor bump for new features. Major bump for breaking changes.
 
 ### Package dependency chain
@@ -136,7 +136,7 @@ See root `package.json` scripts for the full list. Quick reference:
 ```
 @datnguyennnx/localterm (CLI)
   └── depends on → @datnguyennnx/localterm-server (server)
-  └── serves → @localterm/terminal (browser app, bundled into server static assets)
+  └── serves → @datnguyennnx/localterm-terminal (browser app, bundled into server static assets)
 ```
 
 When bumping the CLI, the server version is also bumped automatically (fixed pair). The terminal app is bundled into the server and distributed through it — no separate versioning needed.
