@@ -30,7 +30,7 @@ import type { ServerToClientMessage } from "../types.js";
 import { getHeartbeatAction } from "../utils/get-heartbeat-action.js";
 import { SHELL_INTEGRATION_ENV_VAR } from "../shell-integration/index.js";
 import { validateAgentToken, loadOrCreateAgentToken } from "../agent/token.js";
-import { handleRpcRequest } from "../agent/rpc.js";
+import { handleRpcRequest, disconnectAgentSessions } from "../agent/rpc.js";
 import { stripAnsi } from "../parser/strip-ansi.js";
 
 export interface ServerOptions {
@@ -201,15 +201,28 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             ws.close(WS_CLOSE_CAPACITY_REACHED, "session capacity reached");
             return;
           }
-          const integrationEnv =
-            sessionMode === "agent" ? { [SHELL_INTEGRATION_ENV_VAR]: "1" } : undefined;
-          const newSession = new Session({
-            cwd: requestedCwd,
-            mode: sessionMode,
-            env: integrationEnv,
-          });
-          session = newSession;
-          registry.register(newSession);
+          // --- Resolve session: reattach or create ---
+          const reattachSessionId = context.req.query("sessionId");
+          const reattachCandidate = reattachSessionId
+            ? registry.getById(reattachSessionId)
+            : undefined;
+
+          let activeSession: Session;
+          if (reattachCandidate && !reattachCandidate.isExited) {
+            reattachCandidate.cancelPark();
+            reattachCandidate.removeAllListeners();
+            activeSession = reattachCandidate;
+          } else {
+            const integrationEnv =
+              sessionMode === "agent" ? { [SHELL_INTEGRATION_ENV_VAR]: "1" } : undefined;
+            activeSession = new Session({
+              cwd: requestedCwd,
+              mode: sessionMode,
+              env: integrationEnv,
+            });
+            registry.register(activeSession);
+          }
+          session = activeSession;
 
           // Heartbeat. Without this, half-open sockets (laptop sleep, network
           // dropout) never surface as a `close` event and the daemon keeps
@@ -237,7 +250,7 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
               }
               if (heartbeatAction === "terminate") {
                 console.warn(
-                  `ws heartbeat timeout: no pong for ${idleMs}ms (grace ${now - pendingPingAt}ms, pid ${newSession.pid}); terminating`,
+                  `ws heartbeat timeout: no pong for ${idleMs}ms (grace ${now - pendingPingAt}ms, pid ${activeSession.pid}); terminating`,
                 );
                 stopHeartbeatChecks();
                 if (!callRawMethod(ws.raw, "terminate")) ws.close();
@@ -258,12 +271,12 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           const ensureDrainPoll = () => {
             if (drainPollTimer !== null) return;
             drainPollTimer = setInterval(() => {
-              if (!newSession.isPaused) {
+              if (!activeSession.isPaused) {
                 stopDrainPoll();
                 return;
               }
               if (getRawBufferedAmount(ws.raw) <= WS_OUTBOUND_RESUME_LOW_WATER_BYTES) {
-                newSession.resume();
+                activeSession.resume();
                 stopDrainPoll();
               }
             }, WS_OUTBOUND_DRAIN_POLL_MS);
@@ -284,10 +297,10 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
               safeSendRaw(ws, raw.slice(byteOffset, byteOffset + byteLength));
             }
             if (
-              !newSession.isPaused &&
+              !activeSession.isPaused &&
               getRawBufferedAmount(ws.raw) >= WS_OUTBOUND_PAUSE_HIGH_WATER_BYTES
             ) {
-              newSession.pause();
+              activeSession.pause();
               ensureDrainPoll();
             }
           });
@@ -303,38 +316,49 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             safeSend(ws, { type: "exit", code });
             ws.close();
           };
-          newSession.on("output", onOutput);
-          // Agent-mode gets ANSI-stripped text alongside raw binary output.
+          activeSession.on("output", onOutput);
+          // Agent-mode gets ANSI-stripped text alongside raw binary output
+          // and command-boundary events for structured prompt/command/output phases.
           if (sessionMode === "agent") {
             const onAgentOutput = (data: string) => {
               const text = stripAnsi(data);
               if (text) safeSend(ws, { type: "agent-output", text });
             };
-            newSession.on("output", onAgentOutput);
+            activeSession.on("output", onAgentOutput);
+
+            const onCommandBoundary = (boundary: { phase: string; exitCode?: number }) => {
+              safeSend(ws, {
+                type: "command-boundary",
+                phase: boundary.phase as
+                  | "prompt-start"
+                  | "command-start"
+                  | "output-start"
+                  | "command-end",
+                ...(boundary.exitCode !== undefined ? { exitCode: boundary.exitCode } : {}),
+              });
+            };
+            activeSession.on("commandBoundary", onCommandBoundary);
           }
-          const onCommandBoundary = (boundary: { phase: string; exitCode?: number }) => {
-            safeSend(ws, {
-              type: "command-boundary",
-              phase: boundary.phase as
-                | "prompt-start"
-                | "command-start"
-                | "output-start"
-                | "command-end",
-              ...(boundary.exitCode !== undefined ? { exitCode: boundary.exitCode } : {}),
-            });
-          };
-          newSession.on("commandBoundary", onCommandBoundary);
-          newSession.on("title", onTitle);
-          newSession.on("cwd", onCwd);
-          newSession.on("exit", onExit);
+          activeSession.on("title", onTitle);
+          activeSession.on("cwd", onCwd);
+          activeSession.on("exit", onExit);
 
           safeSend(ws, {
             type: "session",
-            shell: newSession.shell,
-            shellName: newSession.shellBaseName,
-            pid: newSession.pid,
-            cwd: newSession.cwd,
+            id: activeSession.id,
+            shell: activeSession.shell,
+            shellName: activeSession.shellBaseName,
+            pid: activeSession.pid,
+            cwd: activeSession.cwd,
           });
+
+          // Flush tail buffer for reattached sessions
+          if (reattachCandidate) {
+            const tail = reattachCandidate.drainTailBuffer();
+            for (const chunk of tail) {
+              outputBatcher?.push(chunk);
+            }
+          }
         },
         onMessage(event, ws) {
           if (!session) return;
@@ -382,8 +406,14 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
             `ws closed${pidLabel}: code=${event.code} reason=${JSON.stringify(event.reason)} wasClean=${event.wasClean}`,
           );
           if (!session) return;
-          registry.unregister(session);
-          session.dispose();
+          if (session.isExited) {
+            session.destroy();
+          } else {
+            session.park();
+          }
+          if (sessionMode === "agent") {
+            disconnectAgentSessions();
+          }
           session = null;
         },
         onError(event) {
@@ -397,8 +427,14 @@ export const createServer = async (options: ServerOptions = {}): Promise<Running
           const pidLabel = session ? ` pid ${session.pid}` : "";
           console.error(`ws error${pidLabel}: ${message}`);
           if (!session) return;
-          registry.unregister(session);
-          session.dispose();
+          if (session.isExited) {
+            session.destroy();
+          } else {
+            session.park();
+          }
+          if (sessionMode === "agent") {
+            disconnectAgentSessions();
+          }
           session = null;
         },
       };

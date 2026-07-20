@@ -81,6 +81,7 @@ export const useTerminalWebSocket = ({
   setLiveCwd,
 }: UseTerminalWebSocketParams): UseTerminalWebSocketReturn => {
   const socketRef = useRef<WebSocket | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const manualReconnectFnRef = useRef<(() => void) | null>(null);
 
   const send = useCallback((message: ClientToServerMessage): void => {
@@ -97,7 +98,7 @@ export const useTerminalWebSocket = ({
     const connect = () => {
       flowControllerRef.current?.clear();
       if (disposed) return;
-      const nextSocket = new WebSocket(buildWebSocketUrl(liveCwdRef.current));
+      const nextSocket = new WebSocket(buildWebSocketUrl(liveCwdRef.current, sessionIdRef.current));
       nextSocket.binaryType = "arraybuffer";
       socketRef.current = nextSocket;
 
@@ -146,7 +147,9 @@ export const useTerminalWebSocket = ({
           lastTitleRef.current = trimmed;
           document.title = trimmed;
         } else if (message.type === "session") {
+          sessionIdRef.current = message.id;
           setSessionInfo({
+            id: message.id,
             shell: message.shell,
             shellName: message.shellName,
             pid: message.pid,

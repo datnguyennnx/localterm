@@ -74,6 +74,19 @@ export const WS_HEARTBEAT_GRACE_MS = 15_000;
 // fires for normal shutdowns.
 export const SERVER_STOP_GRACE_MS = 1_500;
 
+/**
+ * How long (in ms) a parked session stays alive waiting for reattachment.
+ * After this period the PTY is killed. Set to 0 to disable parking
+ * (immediate-dispose behavior, matching the pre-S1 lifecycle).
+ */
+export const SESSION_PARK_GRACE_PERIOD_MS = 60_000;
+
+/**
+ * Maximum bytes of output retained in the tail buffer while a session is
+ * parked. This is a bounded window — only the most recent output is kept.
+ */
+export const TAIL_BUFFER_MAX_BYTES = 262_144; // 256 KB
+
 export const LOOPBACK_HOSTS = new Set([
   "127.0.0.1",
   "localhost",

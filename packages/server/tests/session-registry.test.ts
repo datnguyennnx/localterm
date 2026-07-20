@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { SessionRegistry } from "../src/session/session-registry.js";
 
+let mockSessionId = 0;
 const createMockSession = () =>
-  ({ dispose: vi.fn() }) as unknown as import("../src/session/session.js").Session;
+  ({
+    id: `mock-session-${mockSessionId++}`,
+    destroy: vi.fn(),
+  }) as unknown as import("../src/session/session.js").Session;
 
 describe("SessionRegistry", () => {
   it("starts empty", () => {
@@ -50,15 +54,15 @@ describe("SessionRegistry", () => {
     expect(registry.size()).toBe(1);
   });
 
-  it("disposeAll calls dispose on every registered session and clears the registry", () => {
+  it("disposeAll calls destroy on every registered session and clears the registry", () => {
     const registry = new SessionRegistry();
     const sessionA = createMockSession();
     const sessionB = createMockSession();
     registry.register(sessionA);
     registry.register(sessionB);
     registry.disposeAll();
-    expect(sessionA.dispose).toHaveBeenCalledTimes(1);
-    expect(sessionB.dispose).toHaveBeenCalledTimes(1);
+    expect(sessionA.destroy).toHaveBeenCalledTimes(1);
+    expect(sessionB.destroy).toHaveBeenCalledTimes(1);
     expect(registry.size()).toBe(0);
   });
 
@@ -84,5 +88,30 @@ describe("SessionRegistry", () => {
     expect(registry.size()).toBe(3);
     registry.register(createMockSession());
     expect(registry.size()).toBe(4);
+  });
+
+  describe("getById", () => {
+    it("returns the session registered with that id", () => {
+      const registry = new SessionRegistry();
+      const session = createMockSession();
+      registry.register(session);
+      expect(registry.getById(session.id)).toBe(session);
+      registry.disposeAll();
+    });
+
+    it("returns undefined for an unknown id", () => {
+      const registry = new SessionRegistry();
+      expect(registry.getById("nonexistent")).toBeUndefined();
+      registry.disposeAll();
+    });
+
+    it("returns undefined after the session is unregistered", () => {
+      const registry = new SessionRegistry();
+      const session = createMockSession();
+      registry.register(session);
+      registry.unregister(session);
+      expect(registry.getById(session.id)).toBeUndefined();
+      registry.disposeAll();
+    });
   });
 });

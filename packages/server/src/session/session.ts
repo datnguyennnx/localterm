@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import os from "node:os";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { spawn, type IPty } from "node-pty";
 import {
   COLORTERM_VALUE,
@@ -9,6 +10,8 @@ import {
   DEFAULT_COLS,
   DEFAULT_ROWS,
   PTY_ENV_DENYLIST,
+  SESSION_PARK_GRACE_PERIOD_MS,
+  TAIL_BUFFER_MAX_BYTES,
   TERM_TYPE,
   TITLE_POLL_INTERVAL_MS,
 } from "../constants.js";
@@ -35,6 +38,7 @@ interface SessionEvents {
 }
 
 export class Session extends EventEmitter<SessionEvents> {
+  readonly id: string;
   readonly shell: string;
   readonly cwd: string;
   readonly createdAt: number;
@@ -46,6 +50,10 @@ export class Session extends EventEmitter<SessionEvents> {
   private currentRows: number;
   private exited = false;
   private paused = false;
+  private parked = false;
+  private cancelParkTimer: (() => void) | null = null;
+  private readonly tailBuffer: string[] = [];
+  private tailBufferBytes = 0;
   private titlePollTimer: NodeJS.Timeout | null = null;
   private lastEmittedTitle = "";
   private lastEmittedCwd = "";
@@ -53,9 +61,15 @@ export class Session extends EventEmitter<SessionEvents> {
   private osc7Detected = false;
   private readonly osc7ChunkParser = new OscChunkParser(parseOsc7FromChunk);
   private readonly osc133ChunkParser = new OscChunkParser(parseOsc133FromChunk);
+  private readonly ptyDataDisposable: { dispose: () => void };
+  private readonly ptyExitDisposable: { dispose: () => void };
+
+  /** Called by destroy() before cleanup. Used by SessionRegistry to unregister. */
+  onDestroy: (() => void) | null = null;
 
   constructor(input: SpawnPtyInput) {
     super();
+    this.id = randomUUID();
     ensureSpawnHelperExecutable();
     this.shell = input.shell ?? getDefaultShell();
     this.shellName = path.basename(this.shell);
@@ -87,12 +101,12 @@ export class Session extends EventEmitter<SessionEvents> {
       env,
     });
 
-    this.pty.onData((data) => {
+    this.ptyDataDisposable = this.pty.onData((data) => {
       this.onPtyOutput(data);
       this.emit("output", data);
     });
 
-    this.pty.onExit(({ exitCode }) => {
+    this.ptyExitDisposable = this.pty.onExit(({ exitCode }) => {
       this.exited = true;
       this.stopTitlePolling();
       this.emit("exit", exitCode);
@@ -184,13 +198,76 @@ export class Session extends EventEmitter<SessionEvents> {
     }
   }
 
-  dispose(): void {
+  /**
+   * Park the session: stop sending output to a WebSocket but keep the PTY
+   * running. Starts a grace timer; if reattach doesn't arrive in time,
+   * the session is destroyed. Output during park is captured in the tail
+   * buffer (bounded to TAIL_BUFFER_MAX_BYTES).
+   */
+  park(gracePeriodMs: number = SESSION_PARK_GRACE_PERIOD_MS): void {
+    if (this.exited || this.parked) return;
+    this.parked = true;
+
+    if (gracePeriodMs > 0) {
+      const timer = setTimeout(() => {
+        this.destroy();
+      }, gracePeriodMs);
+      timer.unref();
+      this.cancelParkTimer = () => {
+        clearTimeout(timer);
+        this.cancelParkTimer = null;
+      };
+    }
+  }
+
+  /**
+   * Cancel the park timer (called when session is reattached).
+   */
+  cancelPark(): void {
+    if (this.cancelParkTimer) {
+      this.cancelParkTimer();
+    }
+    this.parked = false;
+  }
+
+  /**
+   * Get the tail buffer and clear it. Returns a copy so the caller can
+   * replay it on a new WebSocket.
+   */
+  drainTailBuffer(): string[] {
+    const buffer = [...this.tailBuffer];
+    this.tailBuffer.length = 0;
+    this.tailBufferBytes = 0;
+    return buffer;
+  }
+
+  /**
+   * Full destroy — kills the PTY, clears all state. This is the terminal
+   * end of a session's life. Called when the grace period expires, during
+   * server shutdown (disposeAll), or on explicit kill.
+   */
+  destroy(): void {
+    this.onDestroy?.();
+    if (this.exited) {
+      this.ptyDataDisposable.dispose();
+      this.ptyExitDisposable.dispose();
+      this.removeAllListeners();
+      this.tailBuffer.length = 0;
+      this.tailBufferBytes = 0;
+      return;
+    }
+    this.parked = false;
+    this.cancelPark();
     this.kill();
     this.exited = true;
     this.stopTitlePolling();
     this.osc7ChunkParser.reset();
     this.osc133ChunkParser.reset();
+    this.ptyDataDisposable.dispose();
+    this.ptyExitDisposable.dispose();
     this.removeAllListeners();
+    this.tailBuffer.length = 0;
+    this.tailBufferBytes = 0;
   }
 
   private onPtyOutput(data: string): void {
@@ -207,6 +284,16 @@ export class Session extends EventEmitter<SessionEvents> {
     const boundary = this.osc133ChunkParser.push(data);
     if (boundary) {
       this.emit("commandBoundary", boundary);
+    }
+
+    // If parked, capture output in the tail buffer for replay on reattach.
+    if (this.parked && !this.exited) {
+      this.tailBuffer.push(data);
+      this.tailBufferBytes += Buffer.byteLength(data, "utf-8");
+      while (this.tailBufferBytes > TAIL_BUFFER_MAX_BYTES && this.tailBuffer.length > 0) {
+        const removed = this.tailBuffer.shift()!;
+        this.tailBufferBytes -= Buffer.byteLength(removed, "utf-8");
+      }
     }
   }
 

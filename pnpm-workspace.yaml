@@ -1,6 +1,17 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - "@parcel/watcher"
+  - esbuild
+  - node-pty
+  - sharp
+  - spawn-sync
+  - unrs-resolver
 
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@^0.1.12
+
+patchedDependencies:
+  "@xterm/addon-webgl@0.20.0-beta.287": patches/@xterm__addon-webgl@0.20.0-beta.287.patch

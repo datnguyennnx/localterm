@@ -154,6 +154,7 @@ describe("serverToClientMessageSchema", () => {
   it("accepts a session info frame", () => {
     const result = serverToClientMessageSchema.safeParse({
       type: "session",
+      id: "test-session-id-123",
       shell: "/bin/zsh",
       shellName: "zsh",
       pid: 12345,

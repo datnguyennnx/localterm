@@ -1,14 +1,22 @@
 import type { Session } from "./session.js";
 
 export class SessionRegistry {
-  private readonly sessions = new Set<Session>();
+  private readonly sessions = new Map<string, Session>();
 
   register(session: Session): void {
-    this.sessions.add(session);
+    this.sessions.set(session.id, session);
+    session.onDestroy = () => {
+      this.sessions.delete(session.id);
+    };
   }
 
   unregister(session: Session): void {
-    this.sessions.delete(session);
+    this.sessions.delete(session.id);
+    session.onDestroy = null;
+  }
+
+  getById(id: string): Session | undefined {
+    return this.sessions.get(id);
   }
 
   size(): number {
@@ -16,8 +24,9 @@ export class SessionRegistry {
   }
 
   disposeAll(): void {
-    for (const session of this.sessions) {
-      session.dispose();
+    for (const session of this.sessions.values()) {
+      session.onDestroy = null;
+      session.destroy();
     }
     this.sessions.clear();
   }

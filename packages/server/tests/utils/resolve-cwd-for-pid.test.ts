@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any — test mocks need any */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vite-plus/test";
 
 // Mock child_process before importing the module under test.
@@ -49,7 +48,7 @@ describe("resolveCwdForPid", () => {
 
   describe("on Linux", () => {
     beforeEach(() => {
-      vi.spyOn(process, "platform" as any, "get").mockReturnValue("linux");
+      vi.spyOn(process, "platform", "get").mockReturnValue("linux");
     });
 
     it("reads /proc/{pid}/cwd symlink when process exists", async () => {
@@ -70,7 +69,7 @@ describe("resolveCwdForPid", () => {
 
   describe("on macOS (darwin)", () => {
     beforeEach(() => {
-      vi.spyOn(process, "platform" as any, "get").mockReturnValue("darwin");
+      vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
     });
 
     it("parses cwd from lsof output", async () => {
@@ -139,14 +138,14 @@ describe("resolveCwdForPid", () => {
 
   describe("on unsupported platforms", () => {
     it("returns null on Windows", async () => {
-      vi.spyOn(process, "platform" as any, "get").mockReturnValue("win32");
+      vi.spyOn(process, "platform", "get").mockReturnValue("win32");
 
       const result = await resolveCwdForPid(1234);
       expect(result).toBeNull();
     });
 
     it("returns null on other platforms", async () => {
-      vi.spyOn(process, "platform" as any, "get").mockReturnValue("freebsd");
+      vi.spyOn(process, "platform", "get").mockReturnValue("freebsd");
 
       const result = await resolveCwdForPid(1234);
       expect(result).toBeNull();

@@ -9,11 +9,15 @@ export const estimateBytes = (data: string | Uint8Array): number =>
 
 const CWD_QUERY_PARAM = "cwd";
 
-export const buildWebSocketUrl = (cwdOverride?: string | null): string => {
+export const buildWebSocketUrl = (
+  cwdOverride?: string | null,
+  sessionId?: string | null,
+): string => {
   const url = new URL("/ws", window.location.href);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   const cwd = cwdOverride ?? new URLSearchParams(window.location.search).get(CWD_QUERY_PARAM);
   if (cwd) url.searchParams.set(CWD_QUERY_PARAM, cwd);
+  if (sessionId) url.searchParams.set("sessionId", sessionId);
   return url.toString();
 };
 

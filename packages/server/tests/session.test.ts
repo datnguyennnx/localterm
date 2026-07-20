@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any — test accesses private onPtyOutput */
 import { describe, expect, it } from "vite-plus/test";
 import { serverToClientMessageSchema } from "../src/schemas.js";
 import { Session } from "../src/session/session.js";
@@ -38,7 +39,7 @@ describe("Session", () => {
       const output = await collectOutput(session);
       expect(output).toContain("SESSION_TEST_TOKEN");
     } finally {
-      session.dispose();
+      session.destroy();
     }
   });
 
@@ -51,7 +52,7 @@ describe("Session", () => {
       expect(Number.isInteger(session.pid)).toBe(true);
       expect(session.pid).toBeGreaterThan(0);
     } finally {
-      session.dispose();
+      session.destroy();
     }
   });
 
@@ -63,6 +64,7 @@ describe("Session", () => {
     try {
       const frame = {
         type: "session" as const,
+        id: session.id,
         shell: session.shell,
         shellName: session.shellBaseName,
         pid: session.pid,
@@ -71,7 +73,7 @@ describe("Session", () => {
       const parsed = serverToClientMessageSchema.safeParse(frame);
       expect(parsed.success).toBe(true);
     } finally {
-      session.dispose();
+      session.destroy();
     }
   });
 
@@ -86,7 +88,7 @@ describe("Session", () => {
     session.write("exit 0\n");
     const code = await exitPromise;
     expect(code).toBe(0);
-    session.dispose();
+    session.destroy();
   });
 
   it("ignores writes after exit", async () => {
@@ -96,14 +98,14 @@ describe("Session", () => {
     await waitFor(exitPromise, 3000);
     expect(session.isExited).toBe(true);
     expect(() => session.write("anything")).not.toThrow();
-    session.dispose();
+    session.destroy();
   });
 
-  it("kills the underlying PTY child when dispose is called before the shell exits", async () => {
+  it("kills the underlying PTY child when destroy is called before the shell exits", async () => {
     const session = new Session({ shell: "/bin/sh" });
     await collectOutput(session);
     const childPid = session.pid;
-    session.dispose();
+    session.destroy();
 
     const isProcessAlive = (pid: number): boolean => {
       try {
@@ -123,7 +125,7 @@ describe("Session", () => {
             return;
           }
           if (Date.now() - startedAt > 2000) {
-            reject(new Error(`pid ${childPid} still alive 2s after dispose`));
+            reject(new Error(`pid ${childPid} still alive 2s after destroy`));
             return;
           }
           setTimeout(poll, 50);
@@ -144,7 +146,7 @@ describe("Session", () => {
       expect(session.cols).toBe(before.cols);
       expect(session.rows).toBe(before.rows);
     } finally {
-      session.dispose();
+      session.destroy();
     }
   });
 
@@ -169,22 +171,22 @@ describe("Session", () => {
       expect(combined).not.toContain(`${escapeChar}]2;`);
       expect(combined).not.toContain(`${escapeChar}]0;`);
     } finally {
-      session.dispose();
+      session.destroy();
     }
   });
 
-  it("dispose stops emitting any further title polls", async () => {
+  it("destroy stops emitting any further title polls", async () => {
     const session = new Session({ shell: "/bin/sh" });
     await collectOutput(session);
-    session.dispose();
-    let postDisposeTitleCount = 0;
+    session.destroy();
+    let postDestroyTitleCount = 0;
     const onTitle = () => {
-      postDisposeTitleCount += 1;
+      postDestroyTitleCount += 1;
     };
     session.on("title", onTitle);
     await new Promise((resolve) => setTimeout(resolve, 800));
     session.off("title", onTitle);
-    expect(postDisposeTitleCount).toBe(0);
+    expect(postDestroyTitleCount).toBe(0);
   });
 
   it("pause() suppresses output emissions and resume() lets them flow again", async () => {
@@ -209,16 +211,72 @@ describe("Session", () => {
       const observed = await collectOutput(session, 3000);
       expect(observed).toContain("PAUSED_MARKER_DOES_NOT_LEAK");
     } finally {
-      session.dispose();
+      session.destroy();
     }
   });
 
   it("pause() and resume() are no-ops after the session has exited", () => {
     const session = new Session({ shell: "/bin/sh" });
-    session.dispose();
+    session.destroy();
     expect(session.isExited).toBe(true);
     expect(() => session.pause()).not.toThrow();
     expect(session.isPaused).toBe(false);
     expect(() => session.resume()).not.toThrow();
+  });
+
+  describe("park / destroy lifecycle", () => {
+    it("park starts a grace timer that destroys the session on expiry", async () => {
+      const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
+      expect(session.isExited).toBe(false);
+      session.park(50); // 50ms grace period
+      await new Promise((r) => setTimeout(r, 150));
+      expect(session.isExited).toBe(true);
+      session.destroy(); // idempotent cleanup
+    });
+
+    it("cancelPark prevents the grace timer from destroying the session", async () => {
+      const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
+      session.park(100); // 100ms grace period
+      session.cancelPark();
+      await new Promise((r) => setTimeout(r, 200));
+      expect(session.isExited).toBe(false);
+      session.destroy();
+    });
+
+    it("drainTailBuffer returns captured output while parked", async () => {
+      const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
+      session.park(60_000); // long grace period
+      // Simulate output while parked (onPtyOutput appends to tail buffer when parked)
+      (session as any).onPtyOutput("hello ");
+      (session as any).onPtyOutput("world");
+      const buffer = session.drainTailBuffer();
+      expect(buffer).toEqual(["hello ", "world"]);
+      // Second drain returns empty
+      expect(session.drainTailBuffer()).toEqual([]);
+      session.destroy();
+    });
+
+    it("drainTailBuffer is empty when session was never parked", async () => {
+      const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
+      expect(session.drainTailBuffer()).toEqual([]);
+      session.destroy();
+    });
+
+    it("park on an exited session is a no-op", async () => {
+      const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
+      session.destroy();
+      expect(session.isExited).toBe(true);
+      // This should not throw
+      session.park();
+      expect(session.isExited).toBe(true);
+    });
+
+    it("destroy clears the tail buffer", async () => {
+      const session = new Session({ shell: "/bin/sh", cols: 80, rows: 24 });
+      session.park(60_000);
+      (session as any).onPtyOutput("data during park");
+      session.destroy();
+      expect(session.drainTailBuffer()).toEqual([]);
+    });
   });
 });

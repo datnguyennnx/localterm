@@ -1,11 +1,25 @@
 # localterm-server
 
+## 0.2.0
+
+### Minor Changes
+
+- feat: add session reattach with grace period (S1)
+
+  - Add session identity (crypto UUID), park/destroy lifecycle, tail buffer
+  - WS disconnect parks session (60s), reconnect reattaches via sessionId
+  - Fix listener accumulation on park/reattach cycle
+  - Fix zombie sessions in registry after park timeout
+  - Clean up orphaned RPC sessions on WS disconnect
+  - Dispose pty.onData/onExit IDisposables on destroy
+  - Guard command-boundary emission behind agent mode
+  - Clean up as any type assertions in tests
+
 ## 0.1.5
 
 ### Patch Changes
 
 - refactor: remove unused dead code across packages
-
   - Removed unused exports, files, and types identified by knip
   - Removed unused zod dependency from CLI
   - Simplified package.json scripts (merged redundant commands, lint auto-fixes)

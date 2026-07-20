@@ -4,6 +4,7 @@ import { AGENT_COMMAND_DENYLIST } from "../constants.js";
 import { stripAnsi } from "../parser/strip-ansi.js";
 import { type CommandBoundary } from "../parser/parse-osc133-from-chunk.js";
 import { type SpawnPtyInput } from "../types.js";
+import { SHELL_INTEGRATION_ENV_VAR } from "../shell-integration/index.js";
 import { Session } from "../session/session.js";
 import { SessionRegistry } from "../session/session-registry.js";
 
@@ -113,7 +114,7 @@ const handleSpawnSession = (ctx: RpcContext, id: string, params: Record<string, 
     cwd,
     shell,
     mode: "agent",
-    env: { LOCALTERM_SHELL_INTEGRATION: "1" },
+    env: { [SHELL_INTEGRATION_ENV_VAR]: "1" },
   };
 
   const session = new Session(input);
@@ -317,3 +318,17 @@ const handleExec = (ctx: RpcContext, id: string, params: Record<string, unknown>
  * These are separate from the human-connection sessions managed by the registry.
  */
 const activeSessions = new Map<string, ManagedSession>();
+
+/**
+ * Destroy all agent-managed sessions and clear the internal session map.
+ * Called when an agent WebSocket disconnects to prevent orphaned sessions
+ * from leaking in both activeSessions and the SessionRegistry (via onDestroy).
+ */
+export function disconnectAgentSessions(): void {
+  for (const managed of activeSessions.values()) {
+    if (!managed.session.isExited) {
+      managed.session.destroy();
+    }
+  }
+  activeSessions.clear();
+}

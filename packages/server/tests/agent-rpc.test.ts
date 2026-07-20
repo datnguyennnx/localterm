@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any — test mocks need any */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vite-plus/test";
 
 // ─── Module-level mocks ───────────────────────────────────────────────────────
@@ -20,10 +19,10 @@ const { MockSession, sessionInstances } = vi.hoisted(() => {
     kill: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
     off: ReturnType<typeof vi.fn>;
-    emit: (event: string, ...args: any[]) => boolean;
+    emit: (event: string, ...args: unknown[]) => boolean;
     once: ReturnType<typeof vi.fn>;
     removeAllListeners: ReturnType<typeof vi.fn>;
-    eventHandlers: Record<string, Array<(...args: any[]) => void>>;
+    eventHandlers: Record<string, Array<(...args: unknown[]) => void>>;
   }> = [];
 
   class MSession {
@@ -40,20 +39,21 @@ const { MockSession, sessionInstances } = vi.hoisted(() => {
     off = vi.fn();
     once = vi.fn();
     removeAllListeners = vi.fn();
-    eventHandlers: Record<string, Array<(...args: any[]) => void>> = {};
+    eventHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
 
-    constructor(input?: any) {
-      if (input?.shell) this.shell = input.shell;
-      if (input?.cwd) this.cwd = input.cwd;
-      this.mode = input?.mode ?? "human";
+    constructor(input?: unknown) {
+      const opts = input as Record<string, unknown> | undefined;
+      if (opts?.shell) this.shell = opts.shell as string;
+      if (opts?.cwd) this.cwd = opts.cwd as string;
+      this.mode = (opts?.mode as string) ?? "human";
       // Implement on/off/emit for real event handling in tests
       this.eventHandlers = {};
-      this.on = vi.fn((event: string, handler: (...args: any[]) => void) => {
+      this.on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         if (!this.eventHandlers[event]) this.eventHandlers[event] = [];
         this.eventHandlers[event]!.push(handler);
         return this;
       });
-      this.off = vi.fn((event: string, handler: (...args: any[]) => void) => {
+      this.off = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const handlers = this.eventHandlers[event];
         if (handlers) {
           const idx = handlers.indexOf(handler);
@@ -61,15 +61,15 @@ const { MockSession, sessionInstances } = vi.hoisted(() => {
         }
         return this;
       });
-      this.emit = (event: string, ...args: any[]): boolean => {
+      this.emit = (event: string, ...args: unknown[]): boolean => {
         const handlers = this.eventHandlers[event];
         if (handlers) handlers.forEach((h) => h(...args));
         return true;
       };
-      instances.push(this as any);
+      instances.push(this);
     }
 
-    emit(_event: string, ..._args: any[]): boolean {
+    emit(_event: string, ..._args: unknown[]): boolean {
       return true;
     }
   }
@@ -173,8 +173,8 @@ describe("isCommandDenied (through handleExec)", () => {
     vi.advanceTimersToNextTimer();
     const lastResponse = responses[responses.length - 1];
     expect(lastResponse?.result).toBeDefined();
-    expect((lastResponse?.result as any)?.stdoutText).toBe("");
-    expect((lastResponse?.result as any)?.exitCode).toBe(0);
+    expect(lastResponse!.result).toHaveProperty("stdoutText", "");
+    expect(lastResponse!.result).toHaveProperty("exitCode", 0);
     vi.useRealTimers();
   });
 
@@ -242,7 +242,7 @@ describe("handleSpawnSession", () => {
     handleRpcRequest(ctx, {
       id: "req-3",
       method: "spawn_session",
-      params: { cwd: "/tmp", extraField: "should-be-rejected" } as any,
+      params: { cwd: "/tmp", extraField: "should-be-rejected" },
     });
 
     // Strict schema should reject extra params
@@ -277,7 +277,7 @@ describe("handleListSessions", () => {
     handleRpcRequest(ctx, { id: "list-1", method: "list_sessions" });
 
     expect(responses).toHaveLength(1);
-    expect((responses[0]?.result as any)?.sessions).toEqual([]);
+    expect(responses[0]!.result).toHaveProperty("sessions", []);
   });
 
   it("returns list of created sessions", () => {
@@ -285,10 +285,9 @@ describe("handleListSessions", () => {
     responses = [];
     handleRpcRequest(ctx, { id: "list-2", method: "list_sessions" });
 
-    const result = responses[0]?.result as any;
-    expect(result?.sessions).toHaveLength(1);
-    expect(result?.sessions[0]?.id).toBe("mock-session-uuid");
-    expect(result?.sessions[0]?.running).toBe(true);
+    expect(responses[0]!.result).toHaveProperty("sessions", [
+      expect.objectContaining({ id: "mock-session-uuid", running: true }),
+    ]);
   });
 
   it("shows session as not running after exit", () => {
@@ -298,8 +297,9 @@ describe("handleListSessions", () => {
     responses = [];
 
     handleRpcRequest(ctx, { id: "list-1", method: "list_sessions" });
-    const result = responses[0]?.result as any;
-    expect(result?.sessions[0]?.running).toBe(false);
+    expect(responses[0]!.result).toHaveProperty("sessions", [
+      expect.objectContaining({ running: false }),
+    ]);
   });
 });
 
@@ -331,7 +331,7 @@ describe("handleWriteInput", () => {
     });
 
     expect(session.write).toHaveBeenCalledWith("echo hello\n");
-    expect((responses[0]?.result as any)?.ok).toBe(true);
+    expect(responses[0]!.result).toHaveProperty("ok", true);
   });
 
   it("returns error for non-existent session", () => {
@@ -395,8 +395,8 @@ describe("handleReadOutput", () => {
       params: { sessionId: "mock-session-uuid" },
     });
 
-    expect((responses[0]?.result as any)?.text).toBe("");
-    expect((responses[0]?.result as any)?.offset).toBe(0);
+    expect(responses[0]!.result).toHaveProperty("text", "");
+    expect(responses[0]!.result).toHaveProperty("offset", 0);
   });
 
   it("returns error for non-existent session", () => {
@@ -415,8 +415,8 @@ describe("handleReadOutput", () => {
       method: "read_output",
       params: { sessionId: "mock-session-uuid" },
     });
-    expect((responses[0]?.result as any)?.text).toBe("");
-    expect((responses[0]?.result as any)?.offset).toBe(0);
+    expect(responses[0]!.result).toHaveProperty("text", "");
+    expect(responses[0]!.result).toHaveProperty("offset", 0);
   });
 });
 
@@ -566,8 +566,8 @@ describe("handleExec", () => {
 
     vi.advanceTimersByTime(50);
     expect(responses).toHaveLength(1);
-    expect((responses[0]?.result as any)?.stdoutText).toBe("");
-    expect((responses[0]?.result as any)?.exitCode).toBe(0);
+    expect(responses[0]!.result).toHaveProperty("stdoutText", "");
+    expect(responses[0]!.result).toHaveProperty("exitCode", 0);
     vi.useRealTimers();
   });
 
@@ -583,8 +583,8 @@ describe("handleExec", () => {
 
     vi.advanceTimersByTime(100);
     expect(responses).toHaveLength(1);
-    expect((responses[0]?.result as any)?.exitCode).toBeNull();
-    expect((responses[0]?.result as any)?.partial).toBe(true);
+    expect(responses[0]!.result).toHaveProperty("exitCode", null);
+    expect(responses[0]!.result).toHaveProperty("partial", true);
     vi.useRealTimers();
   });
 
@@ -607,7 +607,7 @@ describe("handleExec", () => {
 
     vi.advanceTimersByTime(40);
     expect(responses).toHaveLength(1);
-    expect((responses[0]?.result as any)?.exitCode).toBe(0);
+    expect(responses[0]!.result).toHaveProperty("exitCode", 0);
     vi.useRealTimers();
   });
 });
@@ -639,7 +639,7 @@ describe("handleRpcRequest routing", () => {
     handleRpcRequest(ctx, {
       id: "req-2",
       method: "spawn_session",
-      params: { invalidParam: true } as any,
+      params: { invalidParam: true },
     });
 
     expect(responses[0]?.error).toBeDefined();

@@ -544,6 +544,7 @@ describe("SettingsMenu shell section", () => {
   it("collapses shell info by default and only shows the trigger label", () => {
     renderSettingsMenu({
       sessionInfo: {
+        id: "session-mock-id-1",
         shell: "/opt/homebrew/bin/fish",
         shellName: "fish",
         pid: 12345,
@@ -560,6 +561,7 @@ describe("SettingsMenu shell section", () => {
   it("expanding the Shell collapsible reveals name, path, pid, and cwd from sessionInfo", () => {
     renderSettingsMenu({
       sessionInfo: {
+        id: "session-mock-id-2",
         shell: "/opt/homebrew/bin/fish",
         shellName: "fish",
         pid: 12345,

@@ -89,6 +89,7 @@ const titleMessageSchema = z
 const sessionMessageSchema = z
   .object({
     type: z.literal("session"),
+    id: z.string(),
     shell: z.string().min(1),
     shellName: z.string().min(1),
     pid: z.number().int().nonnegative(),
