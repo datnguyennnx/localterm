@@ -1,5 +1,15 @@
 # localterm-server
 
+## 0.2.1
+
+### Patch Changes
+
+- Add configurable terminal border and padding layout inspired by openmux
+
+  - Inner padding (activePaddingX/Y) between border and terminal content
+  - Outer padding (activeOuterPaddingX/Y) between viewport edge and border
+  - Rounded border with focus-aware color (#444 unfocused, #00AAFF focused)
+
 ## 0.2.0
 
 ### Minor Changes

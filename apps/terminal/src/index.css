@@ -193,6 +193,15 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Terminal container border colors - inspired by openmux */
+[data-terminal-container] {
+  border-color: #444444;
+  transition: border-color 0.2s ease;
+}
+[data-terminal-container]:focus-within {
+  border-color: #00AAFF;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

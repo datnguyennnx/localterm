@@ -1,16 +1,24 @@
 import { createStorageSlot } from "./create-storage-slot";
 import {
+  DEFAULT_OUTER_PADDING_X_PX,
+  DEFAULT_OUTER_PADDING_Y_PX,
   DEFAULT_TERMINAL_CURSOR_BLINK,
   DEFAULT_TERMINAL_FONT_SIZE_PX,
   DEFAULT_TERMINAL_LINE_HEIGHT,
+  DEFAULT_TERMINAL_PADDING_X_PX,
+  DEFAULT_TERMINAL_PADDING_Y_PX,
   DEFAULT_TERMINAL_SCROLL_ON_USER_INPUT,
   LOCAL_FONT_FAMILY_STORAGE_KEY,
   LOCAL_FONT_ID,
+  OUTER_PADDING_X_STORAGE_KEY,
+  OUTER_PADDING_Y_STORAGE_KEY,
   TERMINAL_CURSOR_BLINK_STORAGE_KEY,
   TERMINAL_CURSOR_STYLE_STORAGE_KEY,
   TERMINAL_FONT_SIZE_STORAGE_KEY,
   TERMINAL_FONT_STORAGE_KEY,
   TERMINAL_LINE_HEIGHT_STORAGE_KEY,
+  TERMINAL_PADDING_X_STORAGE_KEY,
+  TERMINAL_PADDING_Y_STORAGE_KEY,
   TERMINAL_SCROLLBACK_STORAGE_KEY,
   TERMINAL_SCROLL_ON_USER_INPUT_STORAGE_KEY,
   TERMINAL_THEME_STORAGE_KEY,
@@ -34,6 +42,7 @@ import {
 } from "@/features/terminal/theme/terminal-themes";
 import { clampTerminalFontSize } from "@/features/terminal/fonts/clamp-terminal-font-size";
 import { clampTerminalLineHeight } from "@/features/terminal/fonts/clamp-terminal-line-height";
+import { clampOuterPaddingX, clampOuterPaddingY, clampTerminalPaddingX, clampTerminalPaddingY } from "@/features/terminal/fonts/clamp-terminal-padding";
 
 // Stores a user-entered font family name (or null if none). The
 // deserialize trims whitespace and returns null for empty strings.
@@ -141,3 +150,39 @@ export const loadStoredTerminalScrollOnUserInput = (): boolean =>
   terminalScrollOnUserInputSlot.load();
 export const storeTerminalScrollOnUserInput = (scrollOnUserInput: boolean): void =>
   terminalScrollOnUserInputSlot.store(scrollOnUserInput);
+
+const terminalPaddingXSlot = createStorageSlot(
+  TERMINAL_PADDING_X_STORAGE_KEY,
+  DEFAULT_TERMINAL_PADDING_X_PX,
+  (raw) => clampTerminalPaddingX(Number(raw)),
+);
+
+export const loadStoredTerminalPaddingX = (): number => terminalPaddingXSlot.load();
+export const storeTerminalPaddingX = (padding: number): void => terminalPaddingXSlot.store(padding);
+
+const terminalPaddingYSlot = createStorageSlot(
+  TERMINAL_PADDING_Y_STORAGE_KEY,
+  DEFAULT_TERMINAL_PADDING_Y_PX,
+  (raw) => clampTerminalPaddingY(Number(raw)),
+);
+
+export const loadStoredTerminalPaddingY = (): number => terminalPaddingYSlot.load();
+export const storeTerminalPaddingY = (padding: number): void => terminalPaddingYSlot.store(padding);
+
+const outerPaddingXSlot = createStorageSlot(
+  OUTER_PADDING_X_STORAGE_KEY,
+  DEFAULT_OUTER_PADDING_X_PX,
+  (raw) => clampOuterPaddingX(Number(raw)),
+);
+
+export const loadStoredOuterPaddingX = (): number => outerPaddingXSlot.load();
+export const storeOuterPaddingX = (padding: number): void => outerPaddingXSlot.store(padding);
+
+const outerPaddingYSlot = createStorageSlot(
+  OUTER_PADDING_Y_STORAGE_KEY,
+  DEFAULT_OUTER_PADDING_Y_PX,
+  (raw) => clampOuterPaddingY(Number(raw)),
+);
+
+export const loadStoredOuterPaddingY = (): number => outerPaddingYSlot.load();
+export const storeOuterPaddingY = (padding: number): void => outerPaddingYSlot.store(padding);

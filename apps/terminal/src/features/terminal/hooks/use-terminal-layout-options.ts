@@ -8,6 +8,8 @@ export const useTerminalLayoutOptions = (
   fitAddonRef: RefObject<FitAddon | null>,
   activeFontSize: number,
   activeLineHeight: number,
+  activePaddingX: number,
+  activePaddingY: number,
 ): void => {
   useEffect(() => {
     const terminal = terminalRef.current;
@@ -16,5 +18,5 @@ export const useTerminalLayoutOptions = (
     terminal.options.lineHeight = activeLineHeight;
     const fitAddon = fitAddonRef.current;
     if (fitAddon) fitTerminalPreservingScroll(terminal, fitAddon);
-  }, [activeFontSize, activeLineHeight, terminalRef, fitAddonRef]);
+  }, [activeFontSize, activeLineHeight, activePaddingX, activePaddingY, terminalRef, fitAddonRef]);
 };

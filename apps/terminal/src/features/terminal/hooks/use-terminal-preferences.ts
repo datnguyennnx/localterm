@@ -7,22 +7,31 @@ import { findTerminalFontById } from "@/features/terminal/fonts/terminal-fonts";
 import { findTerminalThemeById } from "@/features/terminal/theme/terminal-themes";
 import { clampTerminalFontSize } from "@/features/terminal/fonts/clamp-terminal-font-size";
 import { clampTerminalLineHeight } from "@/features/terminal/fonts/clamp-terminal-line-height";
+import { clampOuterPaddingX, clampOuterPaddingY, clampTerminalPaddingX, clampTerminalPaddingY } from "@/features/terminal/fonts/clamp-terminal-padding";
 import {
   loadStoredLocalFontFamily,
+  loadStoredOuterPaddingX,
+  loadStoredOuterPaddingY,
   loadStoredTerminalCursorBlink,
   loadStoredTerminalCursorStyle,
   loadStoredTerminalFontId,
   loadStoredTerminalFontSize,
   loadStoredTerminalLineHeight,
+  loadStoredTerminalPaddingX,
+  loadStoredTerminalPaddingY,
   loadStoredTerminalScrollback,
   loadStoredTerminalScrollOnUserInput,
   loadStoredTerminalThemeId,
   storeLocalFontFamily,
+  storeOuterPaddingX,
+  storeOuterPaddingY,
   storeTerminalCursorBlink,
   storeTerminalCursorStyle,
   storeTerminalFontId,
   storeTerminalFontSize,
   storeTerminalLineHeight,
+  storeTerminalPaddingX,
+  storeTerminalPaddingY,
   storeTerminalScrollback,
   storeTerminalScrollOnUserInput,
   storeTerminalThemeId,
@@ -43,6 +52,10 @@ export const useTerminalPreferences = (
   const initialCursorBlinkRef = useRef<boolean>(loadStoredTerminalCursorBlink());
   const initialScrollbackRef = useRef<number>(loadStoredTerminalScrollback());
   const initialScrollOnUserInputRef = useRef<boolean>(loadStoredTerminalScrollOnUserInput());
+  const initialPaddingXRef = useRef<number>(loadStoredTerminalPaddingX());
+  const initialPaddingYRef = useRef<number>(loadStoredTerminalPaddingY());
+  const initialOuterPaddingXRef = useRef<number>(loadStoredOuterPaddingX());
+  const initialOuterPaddingYRef = useRef<number>(loadStoredOuterPaddingY());
 
   const [activeThemeId, setActiveThemeId] = useState<string>(initialThemeIdRef.current);
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
@@ -64,6 +77,10 @@ export const useTerminalPreferences = (
   const [activeScrollOnUserInput, setActiveScrollOnUserInput] = useState<boolean>(
     initialScrollOnUserInputRef.current,
   );
+  const [activePaddingX, setActivePaddingX] = useState<number>(initialPaddingXRef.current);
+  const [activePaddingY, setActivePaddingY] = useState<number>(initialPaddingYRef.current);
+  const [activeOuterPaddingX, setActiveOuterPaddingX] = useState<number>(initialOuterPaddingXRef.current);
+  const [activeOuterPaddingY, setActiveOuterPaddingY] = useState<number>(initialOuterPaddingYRef.current);
 
   const effectiveThemeId = previewThemeId ?? activeThemeId;
   const effectiveTheme = useMemo(() => findTerminalThemeById(effectiveThemeId), [effectiveThemeId]);
@@ -139,6 +156,30 @@ export const useTerminalPreferences = (
     storeTerminalScrollOnUserInput(nextScrollOnUserInput);
   }, []);
 
+  const handlePaddingXChange = useCallback((nextPaddingX: number) => {
+    const clamped = clampTerminalPaddingX(nextPaddingX);
+    setActivePaddingX(clamped);
+    storeTerminalPaddingX(clamped);
+  }, []);
+
+  const handlePaddingYChange = useCallback((nextPaddingY: number) => {
+    const clamped = clampTerminalPaddingY(nextPaddingY);
+    setActivePaddingY(clamped);
+    storeTerminalPaddingY(clamped);
+  }, []);
+
+  const handleOuterPaddingXChange = useCallback((nextPaddingX: number) => {
+    const clamped = clampOuterPaddingX(nextPaddingX);
+    setActiveOuterPaddingX(clamped);
+    storeOuterPaddingX(clamped);
+  }, []);
+
+  const handleOuterPaddingYChange = useCallback((nextPaddingY: number) => {
+    const clamped = clampOuterPaddingY(nextPaddingY);
+    setActiveOuterPaddingY(clamped);
+    storeOuterPaddingY(clamped);
+  }, []);
+
   return {
     // Refs
     initialThemeIdRef,
@@ -175,6 +216,14 @@ export const useTerminalPreferences = (
     setActiveScrollback,
     activeScrollOnUserInput,
     setActiveScrollOnUserInput,
+    activePaddingX,
+    setActivePaddingX,
+    activePaddingY,
+    setActivePaddingY,
+    activeOuterPaddingX,
+    setActiveOuterPaddingX,
+    activeOuterPaddingY,
+    setActiveOuterPaddingY,
     // Derived
     effectiveTheme,
     effectiveFont,
@@ -192,5 +241,9 @@ export const useTerminalPreferences = (
     handleCursorBlinkChange,
     handleScrollbackChange,
     handleScrollOnUserInputChange,
+    handlePaddingXChange,
+    handlePaddingYChange,
+    handleOuterPaddingXChange,
+    handleOuterPaddingYChange,
   };
 };

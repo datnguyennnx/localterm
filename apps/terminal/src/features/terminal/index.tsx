@@ -122,6 +122,8 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     handleCursorBlinkChange,
     handleScrollbackChange,
     handleScrollOnUserInputChange,
+    activePaddingX, activePaddingY,
+    activeOuterPaddingX, activeOuterPaddingY,
   } = useTerminalPreferences(terminalRef, fitAddonRef, liveCwd);
 
   const { isMac, isTouchDevice, isAppleWebKit } = usePlatform();
@@ -372,7 +374,7 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useTerminalLayoutOptions(terminalRef, fitAddonRef, activeFontSize, activeLineHeight);
+  useTerminalLayoutOptions(terminalRef, fitAddonRef, activeFontSize, activeLineHeight, activePaddingX, activePaddingY);
   useTerminalVisualOptions(
     terminalRef,
     effectiveTheme,
@@ -404,11 +406,22 @@ export const Terminal = ({ onModalOpenChange }: TerminalProps = {}) => {
   return (
     <main
       ref={rootRef}
-      className="h-dvh w-dvw pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
-      style={{ background: pageBackground }}
+      className="h-screen w-dvw"
+      style={{
+        background: pageBackground,
+        paddingTop: `calc(env(safe-area-inset-top, 0px) + ${activeOuterPaddingY}px)`,
+        paddingRight: `calc(env(safe-area-inset-right, 0px) + ${activeOuterPaddingX}px)`,
+        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${activeOuterPaddingY}px)`,
+        paddingLeft: `calc(env(safe-area-inset-left, 0px) + ${activeOuterPaddingX}px)`,
+      }}
     >
-      <div className="relative h-full w-full">
-        <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" />
+      <div className="relative h-full w-full border rounded-lg overflow-hidden bg-background" data-terminal-container>
+        <div ref={containerRef} aria-label="terminal session" className="absolute inset-0" style={{
+          paddingTop: `${activePaddingY}px`,
+          paddingRight: `${activePaddingX}px`,
+          paddingBottom: `${activePaddingY}px`,
+          paddingLeft: `${activePaddingX}px`,
+        }} />
         <TerminalExitBadge exitInfo={exitInfo} />
         <TerminalToolbar
           activeThemeId={activeThemeId}
